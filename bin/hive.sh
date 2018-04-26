@@ -1,4 +1,12 @@
-
+#!/bin/bash
+# -------------------------------------------------
+# demiurge:jianggang
+# time: F_ 20180321 \ L_ 20180426
+# version:0.0.1
+# encoded:UTF-8
+# functions:
+# P.S:
+# -------------------------------------------------
 
 
 #--红色高亮输出
@@ -88,7 +96,7 @@ judgeErrorMess() {
     local errLog=$1
     local executeState=$2
     local loopCnt=$3
-    
+
     if [ ${loopCnt} -gt 5 ];then
         echo "0"
     else
@@ -117,26 +125,21 @@ judgeErrorMess() {
 superHive() {
 
     local i=1
-    
     executeHql
     if [ $? -ne 0 ];then
-    
         while true
         do
-        
-        i=$((i+1))
-        
-        executeHql
-        flag=$?
-        if [ `judgeErrorMess "${errorlog}" "${flag}" "${i}"` -eq 0 ];then
-            echo "please exit."
-            break;
-        else
-            sleep 5s
-            echo "loop...${i}"
-        fi
-    
-    done
+            i=$((i+1))
+            executeHql
+            flag=$?
+            if [ `judgeErrorMess "${errorlog}" "${flag}" "${i}"` -eq 0 ];then
+                echo "please exit."
+                break;
+            else
+                sleep 5s
+                echo "loop...${i}"
+            fi
+        done
     fi
 
 }
