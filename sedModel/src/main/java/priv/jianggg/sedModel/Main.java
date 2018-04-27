@@ -3,9 +3,7 @@ package priv.jianggg.sedModel;
 import java.io.*;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.GregorianCalendar;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -70,6 +68,7 @@ public class Main {
                 Matcher m = p.matcher(splitTemp);
                 while (m.find()) {
                     match = m.group();
+//                    System.out.println("match " + match);
                     // 算出变量时间
                     int num = 0;
                     for (int x = 0; x < match.length(); x++) {
@@ -77,6 +76,7 @@ public class Main {
                             num++;
                         }
                     }
+//                    System.out.println("num " + num);
                     if (num > 3) {
                         System.out.println("第 " + i + " 行有未能识别的变量: " + match);
                         System.exit(2);
@@ -114,10 +114,74 @@ public class Main {
                             System.exit(2);
                         }
                     } else if (num == 3) {
+
                         dateString = match;
+                        Pattern p3 = Pattern.compile("\\$\\{month,[-+][0-9]+,[-+]([1-9]|[1-2]\\d|30|31)th,\\S+\\}");
+//                        Pattern p3 = Pattern.compile("\\$\\{month,[-+][0-9]+,(\\-|\\+|)[0-9]+th,\\S+\\}");
+                        Matcher m3 = p3.matcher(match);
+                        if (m3.find()) {
+                            int th = 0;
+                            String allVa = match.substring(2, match.length() - 1);
+                            String[] arrayAllVa = allVa.split(",");
+                            String dateCal = arrayAllVa[1];
+                            String theDay = arrayAllVa[2].replace("th", "");
+
+                            String dateFormat = arrayAllVa[3];
+//                            System.out.println("dateFormat: " + dateFormat);
+                            int calDate = Integer.valueOf(dateCal).intValue();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+                            Date date = null;
+                            try {
+                                date = sdf.parse(executeDate);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
+                            Calendar calendar = new GregorianCalendar();
+                            calendar.setTime(date);
+                            calendar.add(calendar.MONTH, calDate);
+                            date = calendar.getTime();
+                            String theMonth = sdf.format(date);
+//                            System.out.println("theMonth: " + theMonth);
+                            Date date2 = new SimpleDateFormat("yyyyMMdd").parse(theMonth);
+                            Calendar cal = Calendar.getInstance();
+                            cal.setTime(date2);
+                            int value = cal.getActualMaximum(Calendar.DAY_OF_MONTH);
+                            cal.set(Calendar.DAY_OF_MONTH, value);
+//                            System.out.println (new SimpleDateFormat("dd").format(cal.getTime()));
+                            List list = new ArrayList();
+                            Calendar aCalendar = Calendar.getInstance(Locale.CHINA);
+                            aCalendar.set(Calendar.YEAR, Integer.parseInt(theMonth.substring(0, 4)));
+                            int year = aCalendar.get(Calendar.YEAR);//年份
+//                            System.out.println("year" + year );
+                            aCalendar.set(Calendar.MONTH, Integer.parseInt(theMonth.substring(4, 6)));
+                            int month = aCalendar.get(Calendar.MONTH);//月份
+                            int day = Integer.parseInt(new SimpleDateFormat("dd").format(cal.getTime()));
+                            String str = "00";
+                            for (int j = 1; j <= day; j++) {
+                                String aDate = String.valueOf(year) + str.substring(0, 2 - String.valueOf(month).length()) + String.valueOf(month) + str.substring(0, 2 - String.valueOf(j).length()) + String.valueOf(j);
+                                list.add(aDate);
+//                                System.out.println("aDate" + aDate );
+                            }
+                            if (Integer.parseInt(theDay) > 0) {
+                                th = Integer.parseInt(theDay) - 1;
+                            } else {
+                                th = day + Integer.parseInt(theDay);
+                            }
+//                            System.out.println("第" + Integer.parseInt(theDay) + "天是 " + list.get(th) );
+                            String list1 = (String) list.get(th);
+//                            System.out.println("list1 " + list1);
+                            try {
+                                dateString = new SimpleDateFormat(dateFormat).format(new SimpleDateFormat(dateFormat).parse(list1));
+                            } catch (Exception e) {
+                                System.out.println("第 " + i + " 行有未能识别的变量: " + match);
+                                System.exit(2);
+                            }
+//                            System.out.println("dateString: " + dateString);
+                        }
                     }
                     temp = temp.replace(match, dateString);
                     splitTemp = splitTemp.replace(match, dateString);
+                    System.out.println("match: " + match + " dateString: " + dateString);
                 }
                 Pattern p2 = Pattern.compile("\\$\\{(\\S|\\s|)+\\}");
                 Matcher m2 = p2.matcher(splitTemp);
@@ -133,6 +197,8 @@ public class Main {
             bw.close();
         } catch (IOException e) {
 //            e.printStackTrace();
+        } catch (ParseException e) {
+            e.printStackTrace();
         } finally {
             try {
                 br.close();
