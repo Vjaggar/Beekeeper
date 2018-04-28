@@ -1,4 +1,5 @@
-package priv.jianggg.sedModel;
+package priv.jianggg.sedmodel;
+
 
 import java.io.*;
 import java.text.ParseException;
@@ -8,6 +9,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Main {
+
+
 
     /*
      * 检查传入参数是否正常
@@ -119,7 +122,7 @@ public class Main {
                         Pattern p3 = Pattern.compile("\\$\\{month,[-+][0-9]+,[-+]([1-9]|[1-2]\\d|30|31)th,\\S+\\}");
 //                        Pattern p3 = Pattern.compile("\\$\\{month,[-+][0-9]+,(\\-|\\+|)[0-9]+th,\\S+\\}");
                         Matcher m3 = p3.matcher(match);
-                        if (m3.find()) {
+                        while (m3.find()) {
                             int th = 0;
                             String allVa = match.substring(2, match.length() - 1);
                             String[] arrayAllVa = allVa.split(",");
@@ -178,15 +181,76 @@ public class Main {
                             }
 //                            System.out.println("dateString: " + dateString);
                         }
+
+                        Pattern p4 = Pattern.compile("\\$\\{(day|month|year),[-+][0-9]+,[-+][0-9]+(year|month|day),\\S+\\}");
+                        Matcher m4 = p4.matcher(match);
+                        while (m4.find()) {
+                            String allVa = match.substring(2, match.length() - 1);
+                            String[] arrayAllVa = allVa.split(",");
+                            String dateType = arrayAllVa[0];
+                            String dateCal = arrayAllVa[1];
+                            String nextCal = arrayAllVa[2];
+                            String dateFormat = arrayAllVa[3];
+
+                            int numCal = 0;
+
+                            int calDate = Integer.valueOf(dateCal).intValue();
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+                            Date date = null;
+                            try {
+                                date = sdf.parse(executeDate);
+                            } catch (ParseException e) {
+                                e.printStackTrace();
+                            }
+                            Calendar calendar = new GregorianCalendar();
+                            calendar.setTime(date);
+                            if (dateType.equals("day")) {
+                                calendar.add(calendar.DATE, calDate);
+                            } else if (dateType.equals("month")) {
+                                calendar.add(calendar.MONTH, calDate);
+                            } else if (dateType.equals("year")) {
+                                calendar.add(calendar.YEAR, calDate);
+                            } else {
+
+                            }
+
+                            if (nextCal.substring(nextCal.length()-3,nextCal.length()).equals("day")) {
+
+                                numCal = Integer.parseInt(nextCal.replace("day",""));
+
+                                calendar.add(calendar.DATE, numCal);
+                            } else if (nextCal.substring(nextCal.length()-5,nextCal.length()).equals("month")) {
+
+                                numCal = Integer.parseInt(nextCal.replace("month",""));
+                                calendar.add(calendar.MONTH, numCal);
+                            } else if (nextCal.substring(nextCal.length()-4,nextCal.length()).equals("year")) {
+
+                                numCal = Integer.parseInt(nextCal.replace("year",""));
+                                calendar.add(calendar.YEAR, numCal);
+                            } else {
+
+                            }
+
+                            date = calendar.getTime();
+                            try {
+                                SimpleDateFormat formatter = new SimpleDateFormat(dateFormat);
+                                dateString = formatter.format(date);
+                            } catch (Exception e) {
+                                System.out.println("1第 " + i + " 行有未能识别的变量: " + match);
+                                System.exit(2);
+                            }
+
+                        }
+
                     }
                     temp = temp.replace(match, dateString);
                     splitTemp = splitTemp.replace(match, dateString);
-                    System.out.println("match: " + match + " dateString: " + dateString);
+//                    System.out.println("match: " + match + " dateString: " + dateString);
                 }
                 Pattern p2 = Pattern.compile("\\$\\{(\\S|\\s|)+\\}");
                 Matcher m2 = p2.matcher(splitTemp);
                 if (m2.find()) {
-                    System.out.println("第 " + i + " 行有未能识别的变量: " + m2.group());
+                    System.out.println("2第 " + i + " 行有未能识别的变量: " + m2.group());
                     System.exit(2);
                 }
                 bw.write(temp + "\n");
@@ -238,4 +302,6 @@ public class Main {
         checkArguments(sourceFile, executeDate);
         replaceDate(sourceFile, resultFile, executeDate);
     }
+
+
 }

@@ -4,9 +4,10 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>Demiurge</groupId>
+    <groupId>jianggg</groupId>
     <artifactId>sedModel</artifactId>
-    <version>0.1</version>
+    <version>1.0</version>
+
     <build>
         <finalName>sedModel</finalName>
         <plugins>
@@ -14,8 +15,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>1.7</source>
+                    <target>1.7</target>
                 </configuration>
             </plugin>
             <plugin>
@@ -28,12 +29,13 @@
                             <useUniqueVersions>false</useUniqueVersions>
                             <classpathPrefix>lib\</classpathPrefix>
                             <!-- 指定主类 -->
-                            <mainClass>priv.jianggg.sedModel.Main</mainClass>
+                            <mainClass>priv.jianggg.sedmodel.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
 
 </project>

@@ -60,9 +60,7 @@ executeHql() {
     local begin_time=`date +"%Y-%m-%d %H:%M:%S"`
     hightEcho "[- ^binggo^ ${begin_time} -]\n" | tee -a ${job_log}
     #--程序内核:BeeLine
-    # ${beeline} --color=true --silent=false --verbose=true --hiveconf mapred.job.name="${table_name}" -f ${R_hql} >> ${job_log} 2>&1
-    echo "${beeline} --color=true --silent=false --verbose=true --hiveconf mapred.job.name="${table_name}" -f ${R_hql}" | tee -a ${job_log}
-    aa
+    ${beeline} --color=true --silent=false --verbose=true -f ${R_hql} | tee -a ${job_log}
     local sh_state=$?
     local end_time=`date +"%Y-%m-%d %H:%M:%S"`
     echo -e "\n------------------------------------------------------------------\n|  .begin : ${begin_time}  --  .end : ${end_time}  |\n------------------------------------------------------------------\n" | tee -a ${job_log}
@@ -76,7 +74,7 @@ executeHql() {
 
 cutFile() {
     # 通过日志文件找到报错的语句";"在第几行,通过hql文件找到这一行上最近的一个--CUT
-    line_id=`sed -n "1,$(grep 'jdbc:hive2://' -c ${job_log})p" ${hql_file}|grep '\-- CUT' -no|awk -F':' '{print $1}'|tail -1`
+    line_id=`sed -n "1,$(grep 'jdbc:hive2://' -c ${job_log})p" ${hql_file}|grep '\--<CUT>' -no|awk -F':' '{print $1}'|tail -1`
     if [ ${#line_id} -eq 0 ];then
         line_id=1
     fi
@@ -97,7 +95,7 @@ judgeErrorMess() {
     local executeState=$2
     local loopCnt=$3
 
-    if [ ${loopCnt} -gt 5 ];then
+    if [ ${loopCnt} -gt 0 ];then
         echo "0"
     else
         echo "1"
@@ -129,33 +127,25 @@ superHive() {
     if [ $? -ne 0 ];then
         while true
         do
-            i=$((i+1))
-            executeHql
-            flag=$?
             if [ `judgeErrorMess "${errorlog}" "${flag}" "${i}"` -eq 0 ];then
-                echo "please exit."
+                # echo "please exit."
                 break;
             else
                 sleep 5s
                 echo "loop...${i}"
             fi
+            i=$((i+1))
+            executeHql
+            flag=$?
         done
     fi
 
 }
 
-#-- 完成参数设计
-# 1.距离今天多少天之前
-# 2.距离本月多少月之前
-# 3.距离今年多少年之前
-
-# 4.距离本月多少月之前的月份的顺数第几天(上个月的第一天，第二天)
-# 5.距离本月多少月之前的月份的倒数第几天(上个月的最后一天)
-
 
 timestamp=$(date +"%s%N")
 #--beeline
-beeline='/hadoop/hive-0.13.1-cdh5.3.3/bin/beeline -u "jdbc:hive2://hive01:10001" -n hadoop -p 1qaz#EDC --hiveconf mapred.job.queue.name=hadoop'
+beeline='/home/edc_jk/sparkForThrift/bin/beeline -u "jdbc:hive2://hnedaint03:10001/default;principal=edc_jk/admin@NBDP.COM" --hiveconf hive.exec.dynamic.partition.mode=nonstrict --hiveconf hive.mapred.mode=strict'
 #--hive.sh脚本所在的绝对路径
 shell_path=$(cd "$(dirname "$0")";pwd)
 #--此工具的绝对路径
@@ -187,7 +177,7 @@ if [ ! -d ${job_path}/logs/poppy/ ];then
 fi
 
 #--删除5天以前的历史日志,5天前的执行hql文件
-find ${job_path}/logs/ -mtime +5 -type f |xargs rm -f &> /dev/null
+# find ${job_path}/logs/ -mtime +5 -type f |xargs rm -f &> /dev/null
 
 #--检查是否文件名、执行日期两个参数都传正确了
 checkValue "${hql_file}" "${date}" "${err_value}"

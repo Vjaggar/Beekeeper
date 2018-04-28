@@ -2,25 +2,25 @@
 #-- 完成参数设计
 
 # 1.距离今天多少天之前
-${day,-1,yyyyMMdd}
-${day,-1,yyyyMM}
-${day,-1,yyyy}
+20180427
+201804
+2018
 
 # 2.距离今天多少月之前
-${month,-1,yyyyMMdd}
-${month,-1,yyyyMM}
-${month,-1,yyyy}
+20180328
+201803
+2018
 
 # 3.距离今天多少年之前
-${year,-1,yyyyMMdd}
-${year,-1,yyyyMM}
-${year,-1,yyyy}
-${year,+0,yyyy}
+20170428
+201704
+2017
+2018
 
 # 4.距离本月多少月之前的月份的顺数第几天(上个月的第一天，第二天)
-${month,-1,-1th,yyyyMMdd}
+20180331
 
-${day,-1,-6month,-1th,yyyyMMdd}
+
 
 # 5.距离本月多少月之前的月份的倒数第几天(上个月的最后一天)
 
@@ -32,23 +32,25 @@ ${day,-1,-6month,-1th,yyyyMMdd}
 FROM TST.LAB_EVT_PRD_COMPLETE_IN_D A
 INNER JOIN TMP.TMP_LAB_EVT_PRD_COMPLETE_IN_D04 B
 ON   A.PROD_INST_ID = B.PROD_INST_ID
-WHERE A.P_DAY_ID IN ('${day,-2,yyyyMMdd}')
+WHERE A.P_DAY_ID IN ('20180426')
 AND  A.PRD_COMPLETE_IN = 0
 -- AND  A.LAN_ID = '${LAN_ID}'
 -- AND A.MON_ID >= TO_NUMBER(TO_CHAR(ADD_MONTHS(TO_DATE(${day,-1,yyyyMMdd}, 'YYYYMMDD'),-6), 'YYYYMM'))
 AND A.MON_ID >= '201710'
 
 
-TO_NUMBER(TO_CHAR(ADD_MONTHS(TO_DATE(${day,-1,yyyyMMdd}, 'YYYYMMDD'),-6), 'YYYYMM')) 这种参数咋设计
+TO_NUMBER(TO_CHAR(ADD_MONTHS(TO_DATE(20180427, 'YYYYMMDD'),-6), 'YYYYMM')) 这种参数咋设计
 
 
-${day,-1,-6month,yyyyMMdd}${day,-1,+6year,yyyyMMdd}
+2017102720240427
 
 
-${month,-1,-6day,yyyyMMdd}
+20180322
 
 
 year month day hour minutes second
+
+
 
 
 
