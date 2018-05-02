@@ -236,7 +236,7 @@ public class Main {
                                 SimpleDateFormat formatter = new SimpleDateFormat(dateFormat);
                                 dateString = formatter.format(date);
                             } catch (Exception e) {
-                                System.out.println("1第 " + i + " 行有未能识别的变量: " + match);
+                                System.out.println("第 " + i + " 行有未能识别的变量: " + match);
                                 System.exit(2);
                             }
 
@@ -250,7 +250,7 @@ public class Main {
                 Pattern p2 = Pattern.compile("\\$\\{(\\S|\\s|)+\\}");
                 Matcher m2 = p2.matcher(splitTemp);
                 if (m2.find()) {
-                    System.out.println("2第 " + i + " 行有未能识别的变量: " + m2.group());
+                    System.out.println("第 " + i + " 行有未能识别的变量: " + m2.group());
                     System.exit(2);
                 }
                 bw.write(temp + "\n");

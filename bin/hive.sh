@@ -58,28 +58,25 @@ checkValue() {
 
 executeHql() {
     local begin_time=`date +"%Y-%m-%d %H:%M:%S"`
-    hightEcho "[- ^binggo^ ${begin_time} -]\n" | tee -a ${job_log}
+    hightEcho "[- ^binggo^ ${begin_time} -]\n"
     #--程序内核:BeeLine
-    ${beeline} --color=true --silent=false --verbose=true -f ${R_hql} | tee -a ${job_log}
-    local sh_state=$?
+    ${beeline} --color=true --silent=false --verbose=true -f ${R_hql}
+    echo $? > ${job_flag}
     local end_time=`date +"%Y-%m-%d %H:%M:%S"`
-    echo -e "\n------------------------------------------------------------------\n|  .begin : ${begin_time}  --  .end : ${end_time}  |\n------------------------------------------------------------------\n" | tee -a ${job_log}
-    if [ ${sh_state} -ne 0 ];then
-        StephenChow &> /dev/null
-    fi
+    echo -e "\n------------------------------------------------------------------\n|  .begin : ${begin_time}  --  .end : ${end_time}  |\n------------------------------------------------------------------\n"
 }
-
 
 
 
 cutFile() {
     # 通过日志文件找到报错的语句";"在第几行,通过hql文件找到这一行上最近的一个--CUT
-    line_id=`sed -n "1,$(grep 'jdbc:hive2://' -c ${job_log})p" ${hql_file}|grep '\--<CUT>' -no|awk -F':' '{print $1}'|tail -1`
+    line_id=`sed -n "1,$(grep "${beeline_head}" -c ${job_log})p" ${R_hql}|grep '\--<CUT>' -no|awk -F':' '{print $1}'|tail -1`
+    echo "line_id:${line_id}"
     if [ ${#line_id} -eq 0 ];then
         line_id=1
     fi
     # 从报错的--CUT开始切割文件
-    sed -n "${line_id},$(cat ${hql_file}|wc -l)p" ${hql_file} > /tmp/xx${i}.txt
+    sed -n "${line_id},$(cat ${R_hql}|wc -l)p" ${R_hql} -i
 }
 
 
@@ -94,12 +91,18 @@ judgeErrorMess() {
     local errLog=$1
     local executeState=$2
     local loopCnt=$3
-
-    if [ ${loopCnt} -gt 0 ];then
+    
+    if [ ${executeState} -eq 0 ];then
         echo "0"
-    else
-        echo "1"
+    else 
+        if [ ${loopCnt} -gt 3 ];then
+            echo "0"
+        else
+            echo "1"
+        fi
     fi
+
+    
 
     # 将获取到的错误信息在库中进行对比
     # 若是可重跑修复的报错，则返回重跑次数，再次执行
@@ -121,31 +124,31 @@ judgeErrorMess() {
 }
 
 superHive() {
-
     local i=1
-    executeHql
-    if [ $? -ne 0 ];then
-        while true
-        do
-            if [ `judgeErrorMess "${errorlog}" "${flag}" "${i}"` -eq 0 ];then
-                # echo "please exit."
-                break;
-            else
-                sleep 5s
-                echo "loop...${i}"
-            fi
-            i=$((i+1))
-            executeHql
-            flag=$?
-        done
-    fi
-
+    while true
+    do
+        executeHql 2>&1 | tee ${job_log}
+        cat ${job_log} >> ${all_log}
+        flag=`cat ${job_flag}`
+        if [ `judgeErrorMess "${errorlog}" "${flag}" "${i}"` -eq 0 ];then
+            echo "please exit."
+            break;
+        else
+            cutFile
+            sleep 12s
+            echo "loop...${i}"
+        fi
+        i=$((i+1))
+    done
 }
 
 
 timestamp=$(date +"%s%N")
 #--beeline
 beeline='/home/edc_jk/sparkForThrift/bin/beeline -u "jdbc:hive2://hnedaint03:10001/default;principal=edc_jk/admin@NBDP.COM" --hiveconf hive.exec.dynamic.partition.mode=nonstrict --hiveconf hive.mapred.mode=strict'
+#--beeline的前缀
+beeline_head='0: jdbc:hive2://hnedaint03:10001/default>'
+
 #--hive.sh脚本所在的绝对路径
 shell_path=$(cd "$(dirname "$0")";pwd)
 #--此工具的绝对路径
@@ -168,8 +171,9 @@ R_hql="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.q"
 # 任务的日志文件
 job_log="${job_path}/logs/${table_name}_${date}_${timestamp}.log"
 # 错误日志文件
-err_log="${job_path}/logs/${table_name}_${date}_${timestamp}_err.log"
-
+all_log="${job_path}/logs/${table_name}_${date}_${timestamp}_all.log"
+# flag文件
+job_flag="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.flag"
 
 #--创建日志存放路径和执行文件路径
 if [ ! -d ${job_path}/logs/poppy/ ];then
