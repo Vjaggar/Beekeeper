@@ -2,26 +2,31 @@
 #-- 完成参数设计
 
 # 1.距离今天多少天之前
+# 昨天
 ${day,-1,yyyyMMdd}
 ${day,-1,yyyyMM}
 ${day,-1,yyyy}
 
 # 2.距离今天多少月之前
+# 上个月的今天
 ${month,-1,yyyyMMdd}
 ${month,-1,yyyyMM}
 ${month,-1,yyyy}
 
 # 3.距离今天多少年之前
+# 一年前的今天
 ${year,-1,yyyyMMdd}
 ${year,-1,yyyyMM}
 ${year,-1,yyyy}
 ${year,+0,yyyy}
 
 # 4.距离本月多少月之前的月份的顺数第几天(上个月的第一天，第二天)
+# 上个月的最后一天
 ${month,-1,-1th,yyyyMMdd}
 
+# 昨天的6个月前的月份的最后一天
 ${day,-1,-6month,-1th,yyyyMMdd}
-
+    --       ${day,-1,-2day,-1th,yyyyMMdd}
 # 5.距离本月多少月之前的月份的倒数第几天(上个月的最后一天)
 
 
