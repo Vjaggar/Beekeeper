@@ -1,7 +1,7 @@
 #!/bin/bash
 # -------------------------------------------------
 # demiurge:jianggang
-# time: F_ 20180321 \ L_ 20180503
+# time: F_ 20180321 \ L_ 20180426
 # version:0.0.1
 # encoded:UTF-8
 # functions:
@@ -13,7 +13,6 @@
 hightEcho() {
     echo -e "\033[37;31;1m  ${1}  \033[39;49;0m"
 }
-
 
 #--检查是否文件、执行日期两个参数都传正确了
 checkValue() {
@@ -68,9 +67,11 @@ executeHql() {
 }
 
 
+
 cutFile() {
     # 通过日志文件找到报错的语句";"在第几行,通过hql文件找到这一行上最近的一个--CUT
     line_id=`sed -n "1,$(grep "${beeline_head}" -c ${job_log})p" ${R_hql}|grep '\--<CUT>' -no|awk -F':' '{print $1}'|tail -1`
+    echo "line_id:${line_id}"
     if [ ${#line_id} -eq 0 ];then
         line_id=1
     fi
@@ -90,10 +91,10 @@ judgeErrorMess() {
     local errLog=$1
     local executeState=$2
     local loopCnt=$3
-
+    
     if [ ${executeState} -eq 0 ];then
         echo "0"
-    else
+    else 
         if [ ${loopCnt} -gt 3 ];then
             echo "0"
         else
@@ -101,7 +102,7 @@ judgeErrorMess() {
         fi
     fi
 
-
+    
 
     # 将获取到的错误信息在库中进行对比
     # 若是可重跑修复的报错，则返回重跑次数，再次执行
@@ -122,7 +123,6 @@ judgeErrorMess() {
 
 }
 
-
 superHive() {
     local i=1
     while true
@@ -131,17 +131,15 @@ superHive() {
         cat ${job_log} >> ${all_log}
         flag=`cat ${job_flag}`
         if [ `judgeErrorMess "${errorlog}" "${flag}" "${i}"` -eq 0 ];then
+            echo "please exit."
             break;
         else
-            sleep 12s
-            echo "looping...${i}"
             cutFile
+            sleep 12s
+            echo "loop...${i}"
         fi
         i=$((i+1))
     done
-    if [ ${flag} -ne 0 ];then
-        StephenChow &> /dev/null
-    fi
 }
 
 
@@ -167,11 +165,12 @@ date=$2
 #--多余参数判断
 err_value=$3
 
+
 # 需执行的hql文件
 R_hql="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.q"
-# 任务的日志
+# 任务的日志文件
 job_log="${job_path}/logs/${table_name}_${date}_${timestamp}.log"
-# 完整日志
+# 错误日志文件
 all_log="${job_path}/logs/${table_name}_${date}_${timestamp}_all.log"
 # flag文件
 job_flag="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.flag"
@@ -182,7 +181,7 @@ if [ ! -d ${job_path}/logs/poppy/ ];then
 fi
 
 #--删除5天以前的历史日志,5天前的执行hql文件
-find ${job_path}/logs/ -mtime +5 -type f |xargs rm -f &> /dev/null
+# find ${job_path}/logs/ -mtime +5 -type f |xargs rm -f &> /dev/null
 
 #--检查是否文件名、执行日期两个参数都传正确了
 checkValue "${hql_file}" "${date}" "${err_value}"
