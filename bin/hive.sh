@@ -1,8 +1,8 @@
 #!/bin/bash
 # -------------------------------------------------
 # demiurge:jianggang
-# time: F_ 20180321 \ L_ 20180503
-# version:0.0.1
+# time: F_ 20180321 \ L_ 20180512
+# version:0.1.6
 # encoded:UTF-8
 # functions:
 # P.S:
@@ -26,22 +26,22 @@ checkValue() {
     # 判断传入的参数是否为单个值,hql文件是否正常
     local a_l=`echo ${hql_file}|awk '{print $1}'`
     if [ `echo ${#array_a[*]}` -gt 1 ] || [ `echo ${#array_b[*]}` -gt 1 ] || [ ${#hql_file} -ne ${#a_l} ];then
-        hightEcho "< ERROR! > Please input right values!"
+        echo "< ERROR! > Please input right values!"
         exit -1
     fi
     # 判断是否传入了多余参数
     if [ ${#err_value} -ne 0 ];then
-        hightEcho "< ERROR! > Can't input greater than two values!"
+        echo "< ERROR! > Can't input greater than two values!"
         exit -1
     fi
     # 判断是否传入了需执行的hql文件
     if [ ${#hql_file} -eq 0 ];then
-        hightEcho "< ERROR! > Please input hql file!"
+        echo "< ERROR! > Please input hql file!"
         exit -1
     fi
     #--检查是否存在hql文件
     if [ ! -f ${hql_file} ];then
-        hightEcho "< ERROR! > No such file ( ${hql_file} )!"
+        echo "< ERROR! > No such file ( ${hql_file} )!"
         exit -1
     fi
     # 判断传入的时间参数是否正常
@@ -50,7 +50,7 @@ checkValue() {
         local mess1=$?
         date -d "${date} + 1 days" +"%Y%m%d" &> /dev/null
         if [ $? -ne 0 ] || [ ${mess1} -ne 0 ] || [ ${#date} -ne 8 ];then
-            hightEcho "< ERROR! > Please input right date(YYYYMMDD)!"
+            echo "< ERROR! > Please input right date(YYYYMMDD)!"
             exit -1
         fi
     fi
@@ -59,10 +59,12 @@ checkValue() {
 
 executeHql() {
     local begin_time=`date +"%Y-%m-%d %H:%M:%S"`
-    hightEcho "[- ^binggo^ ${begin_time} -]\n"
+    echo -e "\n[- ^binggo^ ${begin_time} -]\n"
+    echo -e '@START'`date +"%s"`'Dot@'
     #--程序内核:BeeLine
-    ${beeline} --color=true --silent=false --verbose=true -f ${R_hql}
+    ${beeline} --color=false --silent=false --verbose=false -f ${R_hql}
     echo $? > ${job_flag}
+    echo -e '@OVER'`date +"%s"`'Dot@'"\n"
     local end_time=`date +"%Y-%m-%d %H:%M:%S"`
     echo -e "\n------------------------------------------------------------------\n|  .begin : ${begin_time}  --  .end : ${end_time}  |\n------------------------------------------------------------------\n"
 }
@@ -123,14 +125,165 @@ judgeErrorMess() {
 }
 
 
+writeLog() {
+    sleep 5s
+
+    all_log_size=0
+
+    if [ ${#date} -eq 0 ];then
+        exectime=`date +'%Y%m%d'`
+    else
+        exectime=${date}
+    fi
+
+    while true
+    do
+        while true
+        do
+            tmp_size=`du -b ${all_log}|awk '{print $1}'`
+            if [ ${tmp_size} -ne ${all_log_size} ];then
+                all_log_size=${tmp_size}
+                break;
+            else
+                if [ -f ${over_flag} ];then
+                    break 2;
+                fi
+
+                if [ `ps -ef|grep ${pid}|grep ${hql_file}|wc -l` -eq 0 ];then
+                    echo "the procedure was be killed."
+                    break 2;
+                fi
+                sleep 2s
+            fi
+        done
+
+        local log_id=${timestamp}
+        local file_name=`echo ${all_log##*/}|xargs|awk -F'.' '{print $1}'`
+        local tmp_file=${job_path}/logs/poppy/${file_name}
+        # 将日志文件做拍照到临时文件
+        cp ${all_log} ${tmp_file}
+        # 重跑运行开始标志
+        starts=(`grep '@START[0-9]*Dot@' -no ${all_log}`)
+        # 重跑运行结束标志
+        overs=(`grep '@OVER[0-9]*Dot@' -no ${all_log}`)
+
+        echo > ${log_record_sql}
+
+        for((xx=0;xx<${#starts[*]};xx++))
+        do
+            # 重跑运行开始标志所在行数
+            start_line=`echo ${starts["${xx}"]}|awk -F':' '{print $1}'`
+            # 重跑运行开始标志记录的时间
+            start_time=`echo ${starts["${xx}"]}|awk -F':' '{print $2}'|sed 's/@START//g'|sed 's/Dot@//g'`
+
+            if [ ${#overs["${xx}"]} -eq 0 ];then
+                over_line=`cat ${tmp_file}|wc -l`
+                over_time=''
+            else
+                # 重跑运行结束标志所在行数
+                over_line=`echo ${overs["${xx}"]}|awk -F':' '{print $1}'`
+                # 重跑运行结束标志记录的时间
+                over_time=`echo ${overs["${xx}"]}|awk -F':' '{print $2}'|sed 's/@OVER//g'|sed 's/Dot@//g'`
+            fi
+
+            loop_file=${tmp_file}${xx}
+            sed -n "${start_line},${over_line}p" ${tmp_file} > ${loop_file}
+            # HQL运行时间所在行数
+            usetimes=(`grep 'N\?o\?[0-9]* row[s]\? selected ([0-9]\+\.[0-9]\+ seconds)' -no ${loop_file}|sed s/[[:space:]]//g`)
+
+            echo > ${log_record_sql}${xx}
+
+            # 以 1 row selected (144.57 seconds) 为分割线
+            for((o=0;o<${#usetimes[*]};o++))
+            do
+                u=$((o-1))
+                usetime_time=`echo "${usetimes["${o}"]}"|awk -F':' '{print $2}'|awk -F'(' '{print $2}'|sed s/'seconds)'//g`
+                # 块备注所在行数
+                blocks=`grep '\-\-<\?C\?U\?T\?>\?\[.*\]€[0-9]*€' -no ${loop_file}|sed s/[[:space:]]//g`
+
+                # 判断所属块的标志
+                for block in ${blocks}
+                do
+                    block_line=`echo "${block}"|awk -F':' '{print $1}'`
+                    block_mess=`echo "${block}"|awk -F':' '{print $2}'|grep '\[.*\]' -o|sed 's/\[//g'|sed 's/\]//g'`
+                    block_cnt=`echo "${block}"|awk -F':' '{print $2}'|grep '€[0-9]*€' -o|sed 's/€//g'`
+
+                    if [ `echo "${usetimes["${o}"]}"|awk -F':' '{print $1}'` -gt ${block_line} ];then
+                        blockmess=${block_mess}
+                        blockcnt=${block_cnt}
+                    fi
+                done
+
+                if [ ${o} -eq 0 ];then
+                    hql=$(sed -n "1,`echo "${usetimes["${o}"]}"|awk -F':' '{print $1}'`p" ${loop_file}|grep "${beeline_head}"|sed s@"${beeline_head}"@@g)
+                else
+                    hql=$(sed -n "`echo "${usetimes["${u}"]}"|awk -F':' '{print $1}'`,`echo "${usetimes["${o}"]}"|awk -F':' '{print $1}'`p" ${loop_file}|grep "${beeline_head}"|sed s@"${beeline_head}"@@g)
+                fi
+
+                echo ${log_id},${exectime},${table_name},${hql_file},${blockcnt},${blockmess},${xx},"${hql}",${start_time},$(echo ${start_time}+${usetime_time}|bc),${usetime_time},0 >> ${log_record_sql}${xx}
+                start_time=$(echo ${start_time}+${usetime_time}|bc)
+            done
+
+            if [ ${#usetimes[*]} -eq 0 ];then
+                hql=$(cat ${loop_file}|grep "${beeline_head}"|sed s@"${beeline_head}"@@g)
+            else
+                lscn=$((${#usetimes[*]}-1))
+                hql=$(sed -n "`echo "${usetimes["${lscn}"]}"|awk -F':' '{print $1}'`,`cat ${loop_file}|wc -l`p" ${loop_file}|grep "${beeline_head}"|sed s@"${beeline_head}"@@g)
+            fi
+
+            if [ ${#hql} -ne 0 ];then
+                error_mess=`cat ${loop_file}|grep -i error`
+                if [ ${#error_mess} -ne 0 ];then
+                    echo ${log_id},${exectime},${table_name},"${hql_file}",${blockcnt},${blockmess},${xx},"${hql}",${start_time},${over_time},$(echo ${over_time}-${start_time}|bc),-1,${error_mess} >> ${log_record_sql}${xx}
+                fi
+
+                if [ ${#over_time} -eq 0 ];then
+                    echo ${log_id},${exectime},${table_name},"${hql_file}",${blockcnt},${blockmess},${xx},"${hql}",${start_time},,,1, >> ${log_record_sql}${xx}
+                fi
+            fi
+            if [ -f ${log_record_sql}${xx} ];then
+                cat ${log_record_sql}${xx} >> ${log_record_sql}
+            fi
+        done
+    done
+}
+
+
+descBlock() {
+    descBlockFile=${R_hql}.desc
+    rm -f ${descBlockFile} &> /dev/null
+    local cnt=0
+    cat ${R_hql}|while read line
+    do
+        if [ `echo ${line}|grep '\-\-<\?C\?U\?T\?>\?\[.*\]'|wc -l` -ne 0 ];then
+            cnt=$((cnt+1))
+            line=${line}€${cnt}€
+        fi
+        echo "${line}" >> ${descBlockFile}
+    done
+    rm -f ${R_hql}
+    mv ${descBlockFile} ${R_hql}
+    rm -f ${descBlockFile}
+}
+
+
+judgeJobStatus() {
+    if [ `cat ${job_flag}` -ne 0 ];then
+        exit -1
+    else
+        exit 0
+    fi
+}
+
+
 superHive() {
     local i=1
     while true
     do
-        executeHql 2>&1 | tee ${job_log}
-        cat ${job_log} >> ${all_log}
+        executeHql 2>&1 | tee ${job_log} | tee -a ${all_log}
         flag=`cat ${job_flag}`
         if [ `judgeErrorMess "${errorlog}" "${flag}" "${i}"` -eq 0 ];then
+            touch ${over_flag}
             break;
         else
             sleep 12s
@@ -139,12 +292,9 @@ superHive() {
         fi
         i=$((i+1))
     done
-    if [ ${flag} -ne 0 ];then
-        StephenChow &> /dev/null
-    fi
 }
 
-
+pid=$$
 timestamp=$(date +"%s%N")
 #--beeline
 beeline='/home/edc_jk/sparkForThrift/bin/beeline -u "jdbc:hive2://hnedaint03:10001/default;principal=edc_jk/admin@NBDP.COM" --hiveconf hive.exec.dynamic.partition.mode=nonstrict --hiveconf hive.mapred.mode=strict'
@@ -173,8 +323,12 @@ R_hql="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.q"
 job_log="${job_path}/logs/${table_name}_${date}_${timestamp}.log"
 # 完整日志
 all_log="${job_path}/logs/${table_name}_${date}_${timestamp}_all.log"
-# flag文件
+# 任务执行结果flag文件
 job_flag="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.flag"
+# 任务执行结束标志文件
+over_flag="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.over"
+# 日志记录sql文件
+log_record_sql="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.sql"
 
 #--创建日志存放路径和执行文件路径
 if [ ! -d ${job_path}/logs/poppy/ ];then
@@ -193,12 +347,13 @@ if [ $? -ne 0 ];then
     exit -1;
 fi
 
+descBlock
+
+writeLog &
+
 superHive
 
+wait
 
-
-
-
-
-
+judgeJobStatus
 
