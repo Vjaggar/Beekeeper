@@ -71,7 +71,7 @@ public class Main {
                     }
                     if (num > 4) {
                         // 当逗号个数大于4时直接报错
-                        System.out.println("第 " + i + " 行有未能识别的变量: " + match);
+                        System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + match);
                         System.exit(2);
                     } else if (num == 2) {
                         String allVa = match.substring(2, match.length() - 1);
@@ -103,7 +103,7 @@ public class Main {
                             SimpleDateFormat formatter = new SimpleDateFormat(dateFormat);
                             dateString = formatter.format(date);
                         } catch (Exception e) {
-                            System.out.println("第 " + i + " 行有未能识别的变量: " + match);
+                            System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + match);
                             System.exit(2);
                         }
                     } else if (num == 3) {
@@ -157,7 +157,7 @@ public class Main {
                             try {
                                 dateString = new SimpleDateFormat(dateFormat).format(new SimpleDateFormat(dateFormat).parse(list1));
                             } catch (Exception e) {
-                                System.out.println("第 " + i + " 行有未能识别的变量: " + match);
+                                System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + match);
                                 System.exit(2);
                             }
                         }
@@ -208,7 +208,7 @@ public class Main {
                                 SimpleDateFormat formatter = new SimpleDateFormat(dateFormat);
                                 dateString = formatter.format(date);
                             } catch (Exception e) {
-                                System.out.println("第 " + i + " 行有未能识别的变量: " + match);
+                                System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + match);
                                 System.exit(2);
                             }
                         }
@@ -275,7 +275,7 @@ public class Main {
                             try {
                                 dateString = new SimpleDateFormat(dateFormat).format(new SimpleDateFormat(dateFormat).parse(list1));
                             } catch (Exception e) {
-                                System.out.println("第 " + i + " 行有未能识别的变量: " + match);
+                                System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + match);
                                 System.exit(2);
                             }
                         }
@@ -287,7 +287,7 @@ public class Main {
                 Pattern p2 = Pattern.compile("\\$\\{(\\S|\\s|)+\\}");
                 Matcher m2 = p2.matcher(splitTemp);
                 if (m2.find()) {
-                    System.out.println("第 " + i + " 行有未能识别的变量: " + m2.group());
+                    System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + m2.group());
                     System.exit(2);
                 }
                 bw.write(temp + "\n");

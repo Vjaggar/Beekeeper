@@ -2,7 +2,7 @@
 # -------------------------------------------------
 # demiurge:jianggang
 # time: F_ 20180321 \ L_ 20180512
-# version:0.1.6
+# version:0.1.7
 # encoded:UTF-8
 # functions:
 # P.S:
@@ -57,6 +57,7 @@ checkValue() {
 }
 
 
+#-- 执行HQL内核,同时写日志
 executeHql() {
     local begin_time=`date +"%Y-%m-%d %H:%M:%S"`
     echo -e "\n[- ^binggo^ ${begin_time} -]\n"
@@ -70,62 +71,84 @@ executeHql() {
 }
 
 
+#-- 根据--<CUT>切割HQL文件以支撑重跑
 cutFile() {
     # 通过日志文件找到报错的语句";"在第几行,通过hql文件找到这一行上最近的一个--CUT
     line_id=`sed -n "1,$(grep "${beeline_head}" -c ${job_log})p" ${R_hql}|grep '\--<CUT>' -no|awk -F':' '{print $1}'|tail -1`
     if [ ${#line_id} -eq 0 ];then
         line_id=1
     fi
-    # 从报错的--CUT开始切割文件
+    # 从报错的--<CUT>开始切割文件
     sed -n "${line_id},$(cat ${R_hql}|wc -l)p" ${R_hql} -i
 }
 
 
+#-- 判断异常报错是否需按预期直接中止程序
 judgeErrorMess() {
-    # 错误识别学习，规则：相同错误，重复执行5次以上未解决，则视为重跑不可修复错误，存储错误信息供下次程序判断是否需要重跑，重跑能够修复的和不能够修复的错误信息都要存储
-    # 需要获取哪些维度信息?
-    # 在同一时间段，出现相同报错的任务较多，则能够反映一定的问题，时间段长度怎么设置更加合理，分析此报错信息得到衍生信息？
-    # 按场景，按任务分类？
-    # 如果是磁盘溢出的错误，是可以知道是重跑可以解决的问题，怎么设置等待时间？
-    # 将所有用到此程序的训练库都收集起来，总部进行更加智能的训练？怎么让用到我的程序的人都把信息传过来？
-
-    local errLog=$1
+    local errLog=($1)
     local executeState=$2
     local loopCnt=$3
 
+    # 程序出错重跑次数
+    needLoopCnt=3
+    errorMess=${job_path}/conf/errorMess
+
+    if [ -f ${over_flag} ];then
+        rm -f ${over_flag}
+    fi
+
     if [ ${executeState} -eq 0 ];then
-        echo "0"
+        touch ${over_flag}
     else
-        if [ ${loopCnt} -gt 3 ];then
-            echo "0"
+        if [ -f ${errorMess} ];then
+            errorMessAll=`cat ${errorMess}|xargs|sed s/[[:space:]]//g`
+            if [ ${#errorMessAll} -eq 0 ];then
+                if [ ${loopCnt} -gt ${needLoopCnt} ];then
+                    touch ${over_flag}
+                fi
+            else
+                for((ii=0;ii<${#errLog[*]};ii++))
+                do
+                    for((jj=$((ii+1)); jj<$((${#errLog[*]}+1));jj++))
+                    do
+                        mess=""
+                        for((xo=${ii};xo<${jj};xo++))
+                        do
+                            mess=${mess}" "${errLog["${xo}"]}
+                            cat ${errorMess}|while read errorMessLine
+                            do
+                                MS1=`echo ${errorMessLine}|sed 's/^[ \t]*//g'|sed 's/[ \t]*$//g'`
+                                MS2=`echo ${mess}|sed 's/^[ \t]*//g'|sed 's/[ \t]*$//g'`
+                                if [ "${MS1}" = "${MS2}" ];then
+                                    touch ${over_flag}
+                                else
+                                    if [ ${loopCnt} -gt ${needLoopCnt} ];then
+                                        touch ${over_flag}
+                                    fi
+                                fi
+                            done
+                        done
+                    done
+                done
+            fi
         else
-            echo "1"
+            if [ ${loopCnt} -gt ${needLoopCnt} ];then
+                touch ${over_flag}
+            fi
         fi
     fi
 
-
-
-    # 将获取到的错误信息在库中进行对比
-    # 若是可重跑修复的报错，则返回重跑次数，再次执行
-    # 1、若再次执行后还是抱相同错误，则再次执行
-    # 2、若再次执行后报的为新错误，则再次对比，返回新的重跑次数，以此循环，知道执行成功或确定为不可重跑修复的报错中止程序
-
-
-    # 你告诉我: 错误信息 最终结果状态 执行的次数，我给你返回建议的重跑次数
-    # 如果你告诉我的错误信息我没收录，那么我会收录进来。
-    # 默认未收录的错误，返回的建议重跑次数为5，若你给我的执行次数为6，则我返回0
-    #
-
-    # 1.人为定义建议库  [编号(主键)、错误信息、最终结果状态、执行次数、收录时间、系统生成的建议信息(如:根据系统收录显示,此错误为可重跑修复,建议重跑次数为3、根据系统收录显示,此错误为可重跑不可修复,建议重跑次数为0)] (优先级最高)
-    # 2.系统生成的建议库[编号(主键)、错误信息、最终结果状态、执行次数、生成时间、更新时间]
-    # 3.收录的信息库    [编号(主键)、错误信息、最终结果状态、执行次数、收录时间]
-
-
-
+    if [ -f ${over_flag} ];then
+        echo "0"
+    else
+        echo "1"
+    fi
 }
 
 
+#-- 分析日志,生成能够写入数据库的SQL语句
 writeLog() {
+    # 开局等待5秒钟
     sleep 5s
 
     all_log_size=0
@@ -151,7 +174,7 @@ writeLog() {
 
                 if [ `ps -ef|grep ${pid}|grep ${hql_file}|wc -l` -eq 0 ];then
                     echo "the procedure was be killed."
-                    break 2;
+                    exit -1;
                 fi
                 sleep 2s
             fi
@@ -193,14 +216,15 @@ writeLog() {
 
             echo > ${log_record_sql}${xx}
 
+            # 块备注所在行数
+            blocks=`grep '\-\-<\?C\?U\?T\?>\?\[.*\]€[0-9]*€' -no ${loop_file}|sed s/[[:space:]]//g`
+            
             # 以 1 row selected (144.57 seconds) 为分割线
             for((o=0;o<${#usetimes[*]};o++))
             do
                 u=$((o-1))
                 usetime_time=`echo "${usetimes["${o}"]}"|awk -F':' '{print $2}'|awk -F'(' '{print $2}'|sed s/'seconds)'//g`
-                # 块备注所在行数
-                blocks=`grep '\-\-<\?C\?U\?T\?>\?\[.*\]€[0-9]*€' -no ${loop_file}|sed s/[[:space:]]//g`
-
+                
                 # 判断所属块的标志
                 for block in ${blocks}
                 do
@@ -232,6 +256,19 @@ writeLog() {
             fi
 
             if [ ${#hql} -ne 0 ];then
+                # 判断所属块的标志
+                for block in ${blocks}
+                do
+                    block_line=`echo "${block}"|awk -F':' '{print $1}'`
+                    block_mess=`echo "${block}"|awk -F':' '{print $2}'|grep '\[.*\]' -o|sed 's/\[//g'|sed 's/\]//g'`
+                    block_cnt=`echo "${block}"|awk -F':' '{print $2}'|grep '€[0-9]*€' -o|sed 's/€//g'`
+
+                    if [ `cat ${loop_file}|wc -l` -gt ${block_line} ];then
+                        blockmess=${block_mess}
+                        blockcnt=${block_cnt}
+                    fi
+                done
+            
                 error_mess=`cat ${loop_file}|grep -i error`
                 if [ ${#error_mess} -ne 0 ];then
                     echo ${log_id},${exectime},${table_name},"${hql_file}",${blockcnt},${blockmess},${xx},"${hql}",${start_time},${over_time},$(echo ${over_time}-${start_time}|bc),-1,${error_mess} >> ${log_record_sql}${xx}
@@ -249,6 +286,7 @@ writeLog() {
 }
 
 
+#-- 给--[]块备注序号
 descBlock() {
     descBlockFile=${R_hql}.desc
     rm -f ${descBlockFile} &> /dev/null
@@ -267,6 +305,7 @@ descBlock() {
 }
 
 
+#-- 判断HQL执行最终状态
 judgeJobStatus() {
     if [ `cat ${job_flag}` -ne 0 ];then
         exit -1
@@ -276,14 +315,15 @@ judgeJobStatus() {
 }
 
 
+#-- 启动吧!超级HIVE,火力全开!
 superHive() {
     local i=1
     while true
     do
         executeHql 2>&1 | tee ${job_log} | tee -a ${all_log}
         flag=`cat ${job_flag}`
+        errorlog=`cat ${job_log}|grep -i error`
         if [ `judgeErrorMess "${errorlog}" "${flag}" "${i}"` -eq 0 ];then
-            touch ${over_flag}
             break;
         else
             sleep 12s
@@ -294,12 +334,9 @@ superHive() {
     done
 }
 
+
 pid=$$
 timestamp=$(date +"%s%N")
-#--beeline
-beeline='/home/edc_jk/sparkForThrift/bin/beeline -u "jdbc:hive2://hnedaint03:10001/default;principal=edc_jk/admin@NBDP.COM" --hiveconf hive.exec.dynamic.partition.mode=nonstrict --hiveconf hive.mapred.mode=strict'
-#--beeline的前缀
-beeline_head='0: jdbc:hive2://hnedaint03:10001/default>'
 
 #--hive.sh脚本所在的绝对路径
 shell_path=$(cd "$(dirname "$0")";pwd)
@@ -307,6 +344,26 @@ shell_path=$(cd "$(dirname "$0")";pwd)
 job_path=$(cd ${shell_path}/..;pwd)
 #--替换参数的jar包
 sedmodel_jar=${job_path}/lib/sedModel.jar
+if [ ! -f ${sedmodel_jar} ];then
+    echo "no such file ${sedmodel_jar}"
+    exit -1;
+fi
+
+#--beeline
+beelineLink=${job_path}/conf/beelineLink
+if [ ! -f ${beelineLink} ];then
+    echo "no such file ${beelineLink}"
+    exit -1;
+fi
+beeline=`cat ${beelineLink}`
+
+#--beeline的前缀
+beelineHead=${job_path}/conf/beelineHead
+if [ ! -f ${beelineHead} ];then
+    echo "no such file ${beelineHead}"
+    exit -1;
+fi
+beeline_head=`cat ${beelineHead}`
 
 #--文件名
 hql_file=$1
