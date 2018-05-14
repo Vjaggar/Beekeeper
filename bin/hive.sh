@@ -1,8 +1,8 @@
 #!/bin/bash
 # -------------------------------------------------
 # demiurge:jianggang
-# time: F_ 20180321 \ L_ 20180512
-# version:0.1.7
+# time: F_ 20180321 \ L_ 20180514
+# version:0.1.8
 # encoded:UTF-8
 # functions:
 # P.S:
@@ -291,14 +291,14 @@ descBlock() {
     descBlockFile=${R_hql}.desc
     rm -f ${descBlockFile} &> /dev/null
     local cnt=0
-    cat ${R_hql}|while read line
+    while IFS= read -r line
     do
-        if [ `echo ${line}|grep '\-\-<\?C\?U\?T\?>\?\[.*\]'|wc -l` -ne 0 ];then
+        if [ `echo "${line}"|grep '\-\-<\?C\?U\?T\?>\?\[.*\]'|wc -l` -ne 0 ];then
             cnt=$((cnt+1))
-            line=${line}€${cnt}€
+            line=`echo "${line}"|sed 's/[ \t]*$//g'`€${cnt}€
         fi
         echo "${line}" >> ${descBlockFile}
-    done
+    done < ${R_hql}
     rm -f ${R_hql}
     mv ${descBlockFile} ${R_hql}
     rm -f ${descBlockFile}
