@@ -7,6 +7,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+
 public class Main {
 
     /*
@@ -48,6 +49,7 @@ public class Main {
         String dateString = null;
         String splitTemp;
         String match;
+        int errParameterFlag = 0;
         int i = 1;
         try {
             // 指定生成的文件为UTF-8格式
@@ -71,8 +73,8 @@ public class Main {
                     }
                     if (num > 4) {
                         // 当逗号个数大于4时直接报错
-                        System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + match);
-                        System.exit(2);
+                        System.out.println("( " + sourceFile + " ) " + "Line " + i + " has an unrecognized parameter: " + match);
+                        errParameterFlag = 1;
                     } else if (num == 2) {
                         String allVa = match.substring(2, match.length() - 1);
                         String[] arrayAllVa = allVa.split(",");
@@ -103,8 +105,8 @@ public class Main {
                             SimpleDateFormat formatter = new SimpleDateFormat(dateFormat);
                             dateString = formatter.format(date);
                         } catch (Exception e) {
-                            System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + match);
-                            System.exit(2);
+                            System.out.println("( " + sourceFile + " ) " + "Line " + i + " has an unrecognized parameter: " + match);
+                            errParameterFlag = 1;
                         }
                     } else if (num == 3) {
                         dateString = match;
@@ -157,8 +159,8 @@ public class Main {
                             try {
                                 dateString = new SimpleDateFormat(dateFormat).format(new SimpleDateFormat(dateFormat).parse(list1));
                             } catch (Exception e) {
-                                System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + match);
-                                System.exit(2);
+                                System.out.println("( " + sourceFile + " ) " + "Line " + i + " has an unrecognized parameter: " + match);
+                                errParameterFlag = 1;
                             }
                         }
 
@@ -208,8 +210,8 @@ public class Main {
                                 SimpleDateFormat formatter = new SimpleDateFormat(dateFormat);
                                 dateString = formatter.format(date);
                             } catch (Exception e) {
-                                System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + match);
-                                System.exit(2);
+                                System.out.println("( " + sourceFile + " ) " + "Line " + i + " has an unrecognized parameter: " + match);
+                                errParameterFlag = 1;
                             }
                         }
                     } else if (num == 4) {
@@ -275,8 +277,8 @@ public class Main {
                             try {
                                 dateString = new SimpleDateFormat(dateFormat).format(new SimpleDateFormat(dateFormat).parse(list1));
                             } catch (Exception e) {
-                                System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + match);
-                                System.exit(2);
+                                System.out.println("( " + sourceFile + " ) " + "Line " + i + " has an unrecognized parameter: " + match);
+                                errParameterFlag = 1;
                             }
                         }
                     }
@@ -287,8 +289,8 @@ public class Main {
                 Pattern p2 = Pattern.compile("\\$\\{(\\S|\\s|)+\\}");
                 Matcher m2 = p2.matcher(splitTemp);
                 if (m2.find()) {
-                    System.out.println(sourceFile + "第 " + i + " 行有未能识别的变量: " + m2.group());
-                    System.exit(2);
+                    System.out.println("( " + sourceFile + " ) " + "Line " + i + " has an unrecognized parameter: " + m2.group());
+                    errParameterFlag = 1;
                 }
                 bw.write(temp + "\n");
                 temp = br.readLine();
@@ -307,6 +309,11 @@ public class Main {
                 e.printStackTrace();
             }
         }
+
+        if (errParameterFlag == 1) {
+            System.exit(2);
+        }
+
     }
 
     public static void main(String[] args) {

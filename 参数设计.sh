@@ -31,9 +31,6 @@ ${day,-1,-6month,-1th,yyyyMMdd}
 
 
 
-
-
-
 FROM TST.LAB_EVT_PRD_COMPLETE_IN_D A
 INNER JOIN TMP.TMP_LAB_EVT_PRD_COMPLETE_IN_D04 B
 ON   A.PROD_INST_ID = B.PROD_INST_ID
@@ -54,8 +51,6 @@ ${month,-1,-6day,yyyyMMdd}
 
 
 year month day hour minutes second
-
-
 
 
 
