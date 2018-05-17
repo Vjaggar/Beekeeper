@@ -1,8 +1,8 @@
 #!/bin/bash
 # -------------------------------------------------
 # demiurge:jianggang
-# time: F_ 20180321 \ L_ 20180514
-# version:0.1.8
+# time: F_ 20180321 \ L_ 20180517
+# version:0.1.11
 # encoded:UTF-8
 # functions:
 # P.S:
@@ -65,7 +65,7 @@ executeHql() {
     #--程序内核:BeeLine
     ${beeline} --color=false --silent=false --verbose=false -f ${R_hql}
     echo $? > ${job_flag}
-    echo -e '@OVER'`date +"%s"`'Dot@'"\n"
+    echo -e '@OVER'`date +"%s"`'Dot@'
     local end_time=`date +"%Y-%m-%d %H:%M:%S"`
     echo -e "\n------------------------------------------------------------------\n|  .begin : ${begin_time}  --  .end : ${end_time}  |\n------------------------------------------------------------------\n"
 }
@@ -173,7 +173,7 @@ writeLog() {
                 fi
 
                 if [ `ps -ef|grep ${pid}|grep ${hql_file}|wc -l` -eq 0 ];then
-                    echo "the procedure was be killed."
+                    echo "The procedure was be killed."
                     exit -1;
                 fi
                 sleep 2s
@@ -190,7 +190,7 @@ writeLog() {
         # 重跑运行结束标志
         overs=(`grep '@OVER[0-9]*Dot@' -no ${all_log}`)
 
-        echo > ${log_record_sql}
+        echo -e "USE beekeeper;\nDELETE FROM beekeeper_log WHERE task_id = ${log_id};" > ${log_record_sql}
 
         for((xx=0;xx<${#starts[*]};xx++))
         do
@@ -243,8 +243,7 @@ writeLog() {
                 else
                     hql=$(sed -n "`echo "${usetimes["${u}"]}"|awk -F':' '{print $1}'`,`echo "${usetimes["${o}"]}"|awk -F':' '{print $1}'`p" ${loop_file}|grep "${beeline_head}"|sed s@"${beeline_head}"@@g)
                 fi
-
-                echo ${log_id},${exectime},${table_name},${hql_file},${blockcnt},${blockmess},${xx},"${hql}",${start_time},$(echo ${start_time}+${usetime_time}|bc),${usetime_time},0 >> ${log_record_sql}${xx}
+                echo "insert into beekeeper_log(task_id,exectime,table_name,hql_file,blockcnt,blockmess,loop_cnt,hql,start_time,over_time,use_time,task_status) values(${log_id},${exectime},'${table_name}','${hql_file}',${blockcnt},'${blockmess}',${xx},'${hql}',${start_time},$(echo ${start_time}+${usetime_time}|bc),${usetime_time},0);" >> ${log_record_sql}${xx}
                 start_time=$(echo ${start_time}+${usetime_time}|bc)
             done
 
@@ -269,19 +268,22 @@ writeLog() {
                     fi
                 done
             
-                error_mess=`cat ${loop_file}|grep -i error`
+                error_mess=`cat ${loop_file}|grep -i error|sed s/\;//g|sed s/\'//g|sed 's/\,/ /g'`
                 if [ ${#error_mess} -ne 0 ];then
-                    echo ${log_id},${exectime},${table_name},"${hql_file}",${blockcnt},${blockmess},${xx},"${hql}",${start_time},${over_time},$(echo ${over_time}-${start_time}|bc),-1,${error_mess} >> ${log_record_sql}${xx}
+                    echo "insert into beekeeper_log(task_id,exectime,table_name,hql_file,blockcnt,blockmess,loop_cnt,hql,start_time,over_time,use_time,task_status,error_mess) values(${log_id},${exectime},'${table_name}','${hql_file}',${blockcnt},'${blockmess}',${xx},'${hql}',${start_time},${over_time},$(echo ${over_time}-${start_time}|bc),-1,'${error_mess}');" >> ${log_record_sql}${xx}
                 fi
 
                 if [ ${#over_time} -eq 0 ];then
-                    echo ${log_id},${exectime},${table_name},"${hql_file}",${blockcnt},${blockmess},${xx},"${hql}",${start_time},,,1, >> ${log_record_sql}${xx}
+                    echo "insert into beekeeper_log(task_id,exectime,table_name,hql_file,blockcnt,blockmess,loop_cnt,hql,start_time,task_status) values(${log_id},${exectime},'${table_name}','${hql_file}',${blockcnt},'${blockmess}',${xx},'${hql}',${start_time},1);" >> ${log_record_sql}${xx}
                 fi
             fi
             if [ -f ${log_record_sql}${xx} ];then
                 cat ${log_record_sql}${xx} >> ${log_record_sql}
+                rm -f ${log_record_sql}${xx}
             fi
+            rm -f ${loop_file}
         done
+        rm -f ${tmp_file}
     done
 }
 
@@ -289,7 +291,7 @@ writeLog() {
 #-- 给--[]块备注序号
 descBlock() {
     descBlockFile=${R_hql}.desc
-    rm -f ${descBlockFile} &> /dev/null
+    echo > ${descBlockFile}
     local cnt=0
     while IFS= read -r line
     do
@@ -301,7 +303,6 @@ descBlock() {
     done < ${R_hql}
     rm -f ${R_hql}
     mv ${descBlockFile} ${R_hql}
-    rm -f ${descBlockFile}
 }
 
 
@@ -324,6 +325,8 @@ superHive() {
         flag=`cat ${job_flag}`
         errorlog=`cat ${job_log}|grep -i error`
         if [ `judgeErrorMess "${errorlog}" "${flag}" "${i}"` -eq 0 ];then
+            rm -f ${job_log}
+            rm -f ${R_hql}
             break;
         else
             sleep 12s
@@ -345,14 +348,14 @@ job_path=$(cd ${shell_path}/..;pwd)
 #--替换参数的jar包
 sedmodel_jar=${job_path}/lib/sedModel.jar
 if [ ! -f ${sedmodel_jar} ];then
-    echo "no such file ${sedmodel_jar}"
+    echo "< ERROR! > No such file ${sedmodel_jar}"
     exit -1;
 fi
 
 #--beeline
 beelineLink=${job_path}/conf/beelineLink
 if [ ! -f ${beelineLink} ];then
-    echo "no such file ${beelineLink}"
+    echo "< ERROR! > No such file ${beelineLink}"
     exit -1;
 fi
 beeline=`cat ${beelineLink}`
@@ -360,7 +363,7 @@ beeline=`cat ${beelineLink}`
 #--beeline的前缀
 beelineHead=${job_path}/conf/beelineHead
 if [ ! -f ${beelineHead} ];then
-    echo "no such file ${beelineHead}"
+    echo "< ERROR! > No such file ${beelineHead}"
     exit -1;
 fi
 beeline_head=`cat ${beelineHead}`
@@ -376,10 +379,10 @@ err_value=$3
 
 # 需执行的hql文件
 R_hql="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.q"
-# 任务的日志
-job_log="${job_path}/logs/${table_name}_${date}_${timestamp}.log"
+# 任务临时日志
+job_log="${job_path}/logs/${table_name}_${date}_${timestamp}TMP.log"
 # 完整日志
-all_log="${job_path}/logs/${table_name}_${date}_${timestamp}_all.log"
+all_log="${job_path}/logs/${table_name}_${date}_${timestamp}.log"
 # 任务执行结果flag文件
 job_flag="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.flag"
 # 任务执行结束标志文件
