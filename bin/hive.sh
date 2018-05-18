@@ -1,8 +1,8 @@
 #!/bin/bash
 # -------------------------------------------------
 # demiurge:jianggang
-# time: F_ 20180321 \ L_ 20180517
-# version:0.1.11
+# time: F_ 20180321 \ L_ 20180518
+# version:0.1.12
 # encoded:UTF-8
 # functions:
 # P.S:
@@ -61,11 +61,11 @@ checkValue() {
 executeHql() {
     local begin_time=`date +"%Y-%m-%d %H:%M:%S"`
     echo -e "\n[- ^binggo^ ${begin_time} -]\n"
-    echo -e '@START'`date +"%s"`'Dot@'
+    echo -e '@BeekeeperSTART'`date +"%s"`'Dot@'
     #--程序内核:BeeLine
     ${beeline} --color=false --silent=false --verbose=false -f ${R_hql}
     echo $? > ${job_flag}
-    echo -e '@OVER'`date +"%s"`'Dot@'
+    echo -e '@BeekeeperOVER'`date +"%s"`'Dot@'
     local end_time=`date +"%Y-%m-%d %H:%M:%S"`
     echo -e "\n------------------------------------------------------------------\n|  .begin : ${begin_time}  --  .end : ${end_time}  |\n------------------------------------------------------------------\n"
 }
@@ -91,7 +91,6 @@ judgeErrorMess() {
 
     # 程序出错重跑次数
     needLoopCnt=3
-    errorMess=${job_path}/conf/errorMess
 
     if [ -f ${over_flag} ];then
         rm -f ${over_flag}
@@ -100,40 +99,33 @@ judgeErrorMess() {
     if [ ${executeState} -eq 0 ];then
         touch ${over_flag}
     else
-        if [ -f ${errorMess} ];then
-            errorMessAll=`cat ${errorMess}|xargs|sed s/[[:space:]]//g`
-            if [ ${#errorMessAll} -eq 0 ];then
-                if [ ${loopCnt} -gt ${needLoopCnt} ];then
-                    touch ${over_flag}
-                fi
-            else
-                for((ii=0;ii<${#errLog[*]};ii++))
-                do
-                    for((jj=$((ii+1)); jj<$((${#errLog[*]}+1));jj++))
+        if [ ${loopCnt} -gt ${needLoopCnt} ];then
+            touch ${over_flag}
+        else
+            if [ -f ${errorMess} ];then
+                errorMessAll=`cat ${errorMess}|xargs|sed s/[[:space:]]//g`
+                if [ ${#errorMessAll} -ne 0 ];then
+                    for((ii=0;ii<${#errLog[*]};ii++))
                     do
-                        mess=""
-                        for((xo=${ii};xo<${jj};xo++))
+                        for((jj=$((ii+1));jj<$((${#errLog[*]}+1));jj++))
                         do
-                            mess=${mess}" "${errLog["${xo}"]}
-                            cat ${errorMess}|while read errorMessLine
+                            mess=""
+                            for((xo=${ii};xo<${jj};xo++))
                             do
-                                MS1=`echo ${errorMessLine}|sed 's/^[ \t]*//g'|sed 's/[ \t]*$//g'`
-                                MS2=`echo ${mess}|sed 's/^[ \t]*//g'|sed 's/[ \t]*$//g'`
-                                if [ "${MS1}" = "${MS2}" ];then
-                                    touch ${over_flag}
-                                else
-                                    if [ ${loopCnt} -gt ${needLoopCnt} ];then
+                                mess=${mess}" "${errLog["${xo}"]}
+                                while read -r errorMessLine
+                                do
+                                    MS1=`echo ${errorMessLine}|sed 's/^[ \t]*//g'|sed 's/[ \t]*$//g'`
+                                    MS2=`echo ${mess}|sed 's/^[ \t]*//g'|sed 's/[ \t]*$//g'`
+                                    if [ "${MS1}" = "${MS2}" ];then
                                         touch ${over_flag}
+                                        break 4;
                                     fi
-                                fi
+                                done < ${errorMess}
                             done
                         done
                     done
-                done
-            fi
-        else
-            if [ ${loopCnt} -gt ${needLoopCnt} ];then
-                touch ${over_flag}
+                fi
             fi
         fi
     fi
@@ -186,9 +178,9 @@ writeLog() {
         # 将日志文件做拍照到临时文件
         cp ${all_log} ${tmp_file}
         # 重跑运行开始标志
-        starts=(`grep '@START[0-9]*Dot@' -no ${all_log}`)
+        starts=(`grep '@BeekeeperSTART[0-9]*Dot@' -no ${all_log}`)
         # 重跑运行结束标志
-        overs=(`grep '@OVER[0-9]*Dot@' -no ${all_log}`)
+        overs=(`grep '@BeekeeperOVER[0-9]*Dot@' -no ${all_log}`)
 
         echo -e "USE beekeeper;\nDELETE FROM beekeeper_log WHERE task_id = ${log_id};" > ${log_record_sql}
 
@@ -197,7 +189,7 @@ writeLog() {
             # 重跑运行开始标志所在行数
             start_line=`echo ${starts["${xx}"]}|awk -F':' '{print $1}'`
             # 重跑运行开始标志记录的时间
-            start_time=`echo ${starts["${xx}"]}|awk -F':' '{print $2}'|sed 's/@START//g'|sed 's/Dot@//g'`
+            start_time=`echo ${starts["${xx}"]}|awk -F':' '{print $2}'|sed 's/@BeekeeperSTART//g'|sed 's/Dot@//g'`
 
             if [ ${#overs["${xx}"]} -eq 0 ];then
                 over_line=`cat ${tmp_file}|wc -l`
@@ -206,7 +198,7 @@ writeLog() {
                 # 重跑运行结束标志所在行数
                 over_line=`echo ${overs["${xx}"]}|awk -F':' '{print $1}'`
                 # 重跑运行结束标志记录的时间
-                over_time=`echo ${overs["${xx}"]}|awk -F':' '{print $2}'|sed 's/@OVER//g'|sed 's/Dot@//g'`
+                over_time=`echo ${overs["${xx}"]}|awk -F':' '{print $2}'|sed 's/@BeekeeperOVER//g'|sed 's/Dot@//g'`
             fi
 
             loop_file=${tmp_file}${xx}
@@ -218,13 +210,13 @@ writeLog() {
 
             # 块备注所在行数
             blocks=`grep '\-\-<\?C\?U\?T\?>\?\[.*\]€[0-9]*€' -no ${loop_file}|sed s/[[:space:]]//g`
-            
+
             # 以 1 row selected (144.57 seconds) 为分割线
             for((o=0;o<${#usetimes[*]};o++))
             do
                 u=$((o-1))
                 usetime_time=`echo "${usetimes["${o}"]}"|awk -F':' '{print $2}'|awk -F'(' '{print $2}'|sed s/'seconds)'//g`
-                
+
                 # 判断所属块的标志
                 for block in ${blocks}
                 do
@@ -267,7 +259,7 @@ writeLog() {
                         blockcnt=${block_cnt}
                     fi
                 done
-            
+
                 error_mess=`cat ${loop_file}|grep -i error|sed s/\;//g|sed s/\'//g|sed 's/\,/ /g'`
                 if [ ${#error_mess} -ne 0 ];then
                     echo "insert into beekeeper_log(task_id,exectime,table_name,hql_file,blockcnt,blockmess,loop_cnt,hql,start_time,over_time,use_time,task_status,error_mess) values(${log_id},${exectime},'${table_name}','${hql_file}',${blockcnt},'${blockmess}',${xx},'${hql}',${start_time},${over_time},$(echo ${over_time}-${start_time}|bc),-1,'${error_mess}');" >> ${log_record_sql}${xx}
@@ -346,7 +338,7 @@ shell_path=$(cd "$(dirname "$0")";pwd)
 #--此工具的绝对路径
 job_path=$(cd ${shell_path}/..;pwd)
 #--替换参数的jar包
-sedmodel_jar=${job_path}/lib/sedModel.jar
+sedmodel_jar=${job_path}/libs/sedModel.jar
 if [ ! -f ${sedmodel_jar} ];then
     echo "< ERROR! > No such file ${sedmodel_jar}"
     exit -1;
@@ -389,6 +381,8 @@ job_flag="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.flag"
 over_flag="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.over"
 # 日志记录sql文件
 log_record_sql="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.sql"
+# 报错直接重跑的关键字符串
+errorMess="${job_path}/conf/errorMess"
 
 #--创建日志存放路径和执行文件路径
 if [ ! -d ${job_path}/logs/poppy/ ];then
