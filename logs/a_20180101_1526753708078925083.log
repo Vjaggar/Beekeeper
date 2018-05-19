@@ -1,0 +1,205 @@
+
+[- ^binggo^ 2018-05-20 02:15:08 -]
+
+@BeekeeperSTART1526753708Dot@
+Connecting to jdbc:hive2://node1:10001
+18/05/20 02:15:09 INFO Utils: Supplied authorities: node1:10001
+18/05/20 02:15:09 INFO Utils: Resolved authority: node1:10001
+18/05/20 02:15:09 INFO HiveConnection: Will try to open client transport with JDBC Uri: jdbc:hive2://node1:10001
+Connected to: Spark SQL (version 2.1.2)
+Driver: Hive JDBC (version 1.2.1.spark2)
+Transaction isolation: TRANSACTION_REPEATABLE_READ
+0: jdbc:hive2://node1:10001> 
+0: jdbc:hive2://node1:10001> 
+0: jdbc:hive2://node1:10001> 
+0: jdbc:hive2://node1:10001> --<CUT>[A]€1€
+0: jdbc:hive2://node1:10001> use test;
++---------+--+
+| Result  |
++---------+--+
++---------+--+
+No rows selected (0.241 seconds)
+0: jdbc:hive2://node1:10001> show tables;
++-----------+------------+--------------+--+
+| database  | tableName  | isTemporary  |
++-----------+------------+--------------+--+
+| test      | a          | false        |
+| test      | b          | false        |
+| test      | big        | false        |
+| test      | c          | false        |
+| test      | haha       | false        |
+| test      | small      | false        |
+| test      | student    | false        |
+| test      | teachers   | false        |
++-----------+------------+--------------+--+
+8 rows selected (0.068 seconds)
+0: jdbc:hive2://node1:10001> --<CUT>[B]€2€
+0: jdbc:hive2://node1:10001> drop table if exists test.student1;
++---------+--+
+| Result  |
++---------+--+
++---------+--+
+No rows selected (0.057 seconds)
+0: jdbc:hive2://node1:10001> --<CUT>[C]€3€
+0: jdbc:hive2://node1:10001> create table test.student1 as 
+0: jdbc:hive2://node1:10001> select count(*) 1from test.student;
+Error: org.apache.spark.sql.catalyst.parser.ParseException: 
+mismatched input 'test' expecting {<EOF>, ',', 'FROM', 'WHERE', 'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'LATERAL', 'WINDOW', 'UNION', 'EXCEPT', 'MINUS', 'INTERSECT', 'SORT', 'CLUSTER', 'DISTRIBUTE'}(line 2, pos 22)
+
+== SQL ==
+create table test.student1 as
+select count(*) 1from test.student
+----------------------^^^ (state=,code=0)
+
+Closing: 0: jdbc:hive2://node1:10001
+@BeekeeperOVER1526753710Dot@
+
+------------------------------------------------------------------
+|  .begin : 2018-05-20 02:15:08  --  .end : 2018-05-20 02:15:10  |
+------------------------------------------------------------------
+
+
+[- ^binggo^ 2018-05-20 02:15:12 -]
+
+@BeekeeperSTART1526753712Dot@
+Connecting to jdbc:hive2://node1:10001
+18/05/20 02:15:13 INFO Utils: Supplied authorities: node1:10001
+18/05/20 02:15:13 INFO Utils: Resolved authority: node1:10001
+18/05/20 02:15:13 INFO HiveConnection: Will try to open client transport with JDBC Uri: jdbc:hive2://node1:10001
+Connected to: Spark SQL (version 2.1.2)
+Driver: Hive JDBC (version 1.2.1.spark2)
+Transaction isolation: TRANSACTION_REPEATABLE_READ
+0: jdbc:hive2://node1:10001> --<CUT>[C]€3€
+0: jdbc:hive2://node1:10001> create table test.student1 as 
+0: jdbc:hive2://node1:10001> select count(*) 1from test.student;
+Error: org.apache.spark.sql.catalyst.parser.ParseException: 
+mismatched input 'test' expecting {<EOF>, ',', 'FROM', 'WHERE', 'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'LATERAL', 'WINDOW', 'UNION', 'EXCEPT', 'MINUS', 'INTERSECT', 'SORT', 'CLUSTER', 'DISTRIBUTE'}(line 2, pos 22)
+
+== SQL ==
+create table test.student1 as
+select count(*) 1from test.student
+----------------------^^^ (state=,code=0)
+
+Closing: 0: jdbc:hive2://node1:10001
+@BeekeeperOVER1526753713Dot@
+
+------------------------------------------------------------------
+|  .begin : 2018-05-20 02:15:12  --  .end : 2018-05-20 02:15:13  |
+------------------------------------------------------------------
+
+
+[- ^binggo^ 2018-05-20 02:15:15 -]
+
+@BeekeeperSTART1526753715Dot@
+Connecting to jdbc:hive2://node1:10001
+18/05/20 02:15:16 INFO Utils: Supplied authorities: node1:10001
+18/05/20 02:15:16 INFO Utils: Resolved authority: node1:10001
+18/05/20 02:15:17 INFO HiveConnection: Will try to open client transport with JDBC Uri: jdbc:hive2://node1:10001
+Connected to: Spark SQL (version 2.1.2)
+Driver: Hive JDBC (version 1.2.1.spark2)
+Transaction isolation: TRANSACTION_REPEATABLE_READ
+0: jdbc:hive2://node1:10001> --<CUT>[C]€3€
+0: jdbc:hive2://node1:10001> create table test.student1 as 
+0: jdbc:hive2://node1:10001> select count(*) 1from test.student;
+Error: org.apache.spark.sql.catalyst.parser.ParseException: 
+mismatched input 'test' expecting {<EOF>, ',', 'FROM', 'WHERE', 'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'LATERAL', 'WINDOW', 'UNION', 'EXCEPT', 'MINUS', 'INTERSECT', 'SORT', 'CLUSTER', 'DISTRIBUTE'}(line 2, pos 22)
+
+== SQL ==
+create table test.student1 as
+select count(*) 1from test.student
+----------------------^^^ (state=,code=0)
+
+Closing: 0: jdbc:hive2://node1:10001
+@BeekeeperOVER1526753718Dot@
+
+------------------------------------------------------------------
+|  .begin : 2018-05-20 02:15:15  --  .end : 2018-05-20 02:15:18  |
+------------------------------------------------------------------
+
+
+[- ^binggo^ 2018-05-20 02:15:20 -]
+
+@BeekeeperSTART1526753720Dot@
+Connecting to jdbc:hive2://node1:10001
+18/05/20 02:15:21 INFO Utils: Supplied authorities: node1:10001
+18/05/20 02:15:21 INFO Utils: Resolved authority: node1:10001
+18/05/20 02:15:21 INFO HiveConnection: Will try to open client transport with JDBC Uri: jdbc:hive2://node1:10001
+Connected to: Spark SQL (version 2.1.2)
+Driver: Hive JDBC (version 1.2.1.spark2)
+Transaction isolation: TRANSACTION_REPEATABLE_READ
+0: jdbc:hive2://node1:10001> --<CUT>[C]€3€
+0: jdbc:hive2://node1:10001> create table test.student1 as 
+0: jdbc:hive2://node1:10001> select count(*) 1from test.student;
+Error: org.apache.spark.sql.catalyst.parser.ParseException: 
+mismatched input 'test' expecting {<EOF>, ',', 'FROM', 'WHERE', 'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'LATERAL', 'WINDOW', 'UNION', 'EXCEPT', 'MINUS', 'INTERSECT', 'SORT', 'CLUSTER', 'DISTRIBUTE'}(line 2, pos 22)
+
+== SQL ==
+create table test.student1 as
+select count(*) 1from test.student
+----------------------^^^ (state=,code=0)
+
+Closing: 0: jdbc:hive2://node1:10001
+@BeekeeperOVER1526753722Dot@
+
+------------------------------------------------------------------
+|  .begin : 2018-05-20 02:15:20  --  .end : 2018-05-20 02:15:22  |
+------------------------------------------------------------------
+
+
+[- ^binggo^ 2018-05-20 02:15:24 -]
+
+@BeekeeperSTART1526753724Dot@
+Connecting to jdbc:hive2://node1:10001
+18/05/20 02:15:25 INFO Utils: Supplied authorities: node1:10001
+18/05/20 02:15:25 INFO Utils: Resolved authority: node1:10001
+18/05/20 02:15:25 INFO HiveConnection: Will try to open client transport with JDBC Uri: jdbc:hive2://node1:10001
+Connected to: Spark SQL (version 2.1.2)
+Driver: Hive JDBC (version 1.2.1.spark2)
+Transaction isolation: TRANSACTION_REPEATABLE_READ
+0: jdbc:hive2://node1:10001> --<CUT>[C]€3€
+0: jdbc:hive2://node1:10001> create table test.student1 as 
+0: jdbc:hive2://node1:10001> select count(*) 1from test.student;
+Error: org.apache.spark.sql.catalyst.parser.ParseException: 
+mismatched input 'test' expecting {<EOF>, ',', 'FROM', 'WHERE', 'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'LATERAL', 'WINDOW', 'UNION', 'EXCEPT', 'MINUS', 'INTERSECT', 'SORT', 'CLUSTER', 'DISTRIBUTE'}(line 2, pos 22)
+
+== SQL ==
+create table test.student1 as
+select count(*) 1from test.student
+----------------------^^^ (state=,code=0)
+
+Closing: 0: jdbc:hive2://node1:10001
+@BeekeeperOVER1526753726Dot@
+
+------------------------------------------------------------------
+|  .begin : 2018-05-20 02:15:24  --  .end : 2018-05-20 02:15:26  |
+------------------------------------------------------------------
+
+
+[- ^binggo^ 2018-05-20 02:15:28 -]
+
+@BeekeeperSTART1526753728Dot@
+Connecting to jdbc:hive2://node1:10001
+18/05/20 02:15:29 INFO Utils: Supplied authorities: node1:10001
+18/05/20 02:15:29 INFO Utils: Resolved authority: node1:10001
+18/05/20 02:15:29 INFO HiveConnection: Will try to open client transport with JDBC Uri: jdbc:hive2://node1:10001
+Connected to: Spark SQL (version 2.1.2)
+Driver: Hive JDBC (version 1.2.1.spark2)
+Transaction isolation: TRANSACTION_REPEATABLE_READ
+0: jdbc:hive2://node1:10001> --<CUT>[C]€3€
+0: jdbc:hive2://node1:10001> create table test.student1 as 
+0: jdbc:hive2://node1:10001> select count(*) 1from test.student;
+Error: org.apache.spark.sql.catalyst.parser.ParseException: 
+mismatched input 'test' expecting {<EOF>, ',', 'FROM', 'WHERE', 'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'LATERAL', 'WINDOW', 'UNION', 'EXCEPT', 'MINUS', 'INTERSECT', 'SORT', 'CLUSTER', 'DISTRIBUTE'}(line 2, pos 22)
+
+== SQL ==
+create table test.student1 as
+select count(*) 1from test.student
+----------------------^^^ (state=,code=0)
+
+Closing: 0: jdbc:hive2://node1:10001
+@BeekeeperOVER1526753730Dot@
+
+------------------------------------------------------------------
+|  .begin : 2018-05-20 02:15:28  --  .end : 2018-05-20 02:15:30  |
+------------------------------------------------------------------
+

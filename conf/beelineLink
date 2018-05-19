@@ -1,1 +1,0 @@
-/home/edc_jk/sparkForThrift/bin/beeline -u "jdbc:hive2://hnedaint03:10001/default;principal=edc_jk/admin@NBDP.COM" --hiveconf hive.exec.dynamic.partition.mode=nonstrict --hiveconf hive.mapred.mode=strict
