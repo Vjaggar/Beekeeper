@@ -58,7 +58,12 @@ public class Main {
             temp = br.readLine();
             while (temp != null) {
                 String[] strArray = temp.split("--");
-                splitTemp = strArray[0];
+                if (strArray.length == 0) {
+                    splitTemp = "";
+                } else {
+                    splitTemp = strArray[0];
+                }
+
                 // 匹配时间参数格式
                 Pattern p = Pattern.compile("\\$\\{(day|month|year),[-+][0-9]+,[^\\$\\{]+\\}");
                 Matcher m = p.matcher(splitTemp);

@@ -9,6 +9,5 @@
         <module name="sedModel" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel target="7" />
   </component>
 </project>
