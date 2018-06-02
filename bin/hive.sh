@@ -1,8 +1,8 @@
 #!/bin/bash
 # -------------------------------------------------
 # demiurge:jianggang
-# time: F_ 20180321 \ L_ 20180519
-# version:0.1.13
+# time: F_ 20180321 \ L_ 20180602
+# version:0.1.15
 # encoded:UTF-8
 # functions:
 # P.S:
@@ -476,6 +476,7 @@ ${JAVA_HOME}/bin/java -jar "${sedmodel_jar}" "${hql_file}" "${R_hql}" "${date}"
 if [ $? -ne 0 ];then
     exit -1;
 fi
+echo -e "\n" >> "${R_hql}"
 
 descBlock
 

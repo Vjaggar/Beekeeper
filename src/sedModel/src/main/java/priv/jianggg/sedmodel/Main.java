@@ -28,7 +28,12 @@ public class Main {
         }
 
         // 检查传入的日期格式是否正常
-        SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd");
+        SimpleDateFormat format;
+        if (para2.length() == 8) {
+            format = new SimpleDateFormat("yyyyMMdd");
+        } else {
+            format = new SimpleDateFormat("yyyyMMddHH");
+        }
         try {
             // 设置lenient为false. 否则SimpleDateFormat会比较宽松地验证日期，比如2007/02/29会被接受，并转换成2007/03/01
             format.setLenient(false);
@@ -38,6 +43,7 @@ public class Main {
             System.out.println("传入的日期格式有问题: " + para2);
             System.exit(2);
         }
+
     }
 
     /*
@@ -65,7 +71,7 @@ public class Main {
                 }
 
                 // 匹配时间参数格式
-                Pattern p = Pattern.compile("\\$\\{(day|month|year),[-+][0-9]+,[^\\$\\{]+\\}");
+                Pattern p = Pattern.compile("\\$\\{(hour|day|month|year),[-+][0-9]+,[^\\$\\{]+\\}");
                 Matcher m = p.matcher(splitTemp);
                 while (m.find()) {
                     match = m.group();
@@ -77,8 +83,8 @@ public class Main {
                         }
                     }
                     if (num > 4) {
-                        // 当逗号个数大于4时直接报错
-                        System.out.println("< ERROR! > " + "Line " + i + " has an unrecognized parameter: " + match);
+                        // 当逗号个数大于4时告警
+                        System.out.println("< WARN! > " + "Line " + i + " has an unrecognized parameter: " + match);
                         errParameterFlag = 1;
                     } else if (num == 2) {
                         String allVa = match.substring(2, match.length() - 1);
@@ -87,7 +93,7 @@ public class Main {
                         String dateCal = arrayAllVa[1];
                         String dateFormat = arrayAllVa[2];
                         int calDate = Integer.valueOf(dateCal).intValue();
-                        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHH");
                         Date date = null;
                         try {
                             date = sdf.parse(executeDate);
@@ -96,7 +102,9 @@ public class Main {
                         }
                         Calendar calendar = new GregorianCalendar();
                         calendar.setTime(date);
-                        if (dateType.equals("day")) {
+                        if (dateType.equals("hour")) {
+                            calendar.add(calendar.HOUR, calDate);
+                        } else if (dateType.equals("day")) {
                             calendar.add(calendar.DATE, calDate);
                         } else if (dateType.equals("month")) {
                             calendar.add(calendar.MONTH, calDate);
@@ -110,7 +118,7 @@ public class Main {
                             SimpleDateFormat formatter = new SimpleDateFormat(dateFormat);
                             dateString = formatter.format(date);
                         } catch (Exception e) {
-                            System.out.println("< ERROR! > " + "Line " + i + " has an unrecognized parameter: " + match);
+                            System.out.println("< WARN! > " + "Line " + i + " has an unrecognized parameter: " + match);
                             errParameterFlag = 1;
                         }
                     } else if (num == 3) {
@@ -129,7 +137,7 @@ public class Main {
                             SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
                             Date date = null;
                             try {
-                                date = sdf.parse(executeDate);
+                                date = sdf.parse(executeDate.substring(0, 8));
                             } catch (ParseException e) {
                                 e.printStackTrace();
                             }
@@ -162,7 +170,8 @@ public class Main {
                             }
                             String list1 = (String) list.get(th);
                             try {
-                                dateString = new SimpleDateFormat(dateFormat).format(new SimpleDateFormat(dateFormat).parse(list1));
+                                dateString = new SimpleDateFormat(dateFormat).format(new SimpleDateFormat("yyyyMMdd").parse(list1));
+//                                dateString = new SimpleDateFormat(dateFormat).format(new SimpleDateFormat(dateFormat).format(new SimpleDateFormat("yyyyMMdd").parse(list1)));
                             } catch (Exception e) {
                                 System.out.println("( " + sourceFile + " ) " + "Line " + i + " has an unrecognized parameter: " + match);
                                 errParameterFlag = 1;
@@ -183,7 +192,7 @@ public class Main {
                             SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
                             Date date = null;
                             try {
-                                date = sdf.parse(executeDate);
+                                date = sdf.parse(executeDate.substring(0, 8));
                             } catch (ParseException e) {
                                 e.printStackTrace();
                             }
@@ -215,7 +224,7 @@ public class Main {
                                 SimpleDateFormat formatter = new SimpleDateFormat(dateFormat);
                                 dateString = formatter.format(date);
                             } catch (Exception e) {
-                                System.out.println("< ERROR! > " + "Line " + i + " has an unrecognized parameter: " + match);
+                                System.out.println("< WARN! > " + "Line " + i + " has an unrecognized parameter: " + match);
                                 errParameterFlag = 1;
                             }
                         }
@@ -237,7 +246,7 @@ public class Main {
                             SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd");
                             Date date = null;
                             try {
-                                date = sdf.parse(executeDate);
+                                date = sdf.parse(executeDate.substring(0, 8));
                             } catch (ParseException e) {
                                 e.printStackTrace();
                             }
@@ -280,9 +289,9 @@ public class Main {
                             }
                             String list1 = (String) list.get(th);
                             try {
-                                dateString = new SimpleDateFormat(dateFormat).format(new SimpleDateFormat(dateFormat).parse(list1));
+                                dateString = new SimpleDateFormat(dateFormat).format(new SimpleDateFormat("yyyyMMdd").parse(list1));
                             } catch (Exception e) {
-                                System.out.println("< ERROR! > " + "Line " + i + " has an unrecognized parameter: " + match);
+                                System.out.println("< WARN! > " + "Line " + i + " has an unrecognized parameter: " + match);
                                 errParameterFlag = 1;
                             }
                         }
@@ -294,14 +303,14 @@ public class Main {
                 Pattern p2 = Pattern.compile("\\$\\{(\\S|\\s|)+\\}");
                 Matcher m2 = p2.matcher(splitTemp);
                 if (m2.find()) {
-                    System.out.println("< ERROR! > " + "Line " + i + " has an unrecognized parameter: " + m2.group());
+                    System.out.println("< WARN! > " + "Line " + i + " has an unrecognized parameter: " + m2.group());
                     errParameterFlag = 1;
                 }
                 bw.write(temp + "\n");
                 temp = br.readLine();
                 i++;
             }
-            bw.write("\n");
+//            bw.write("\n");
             bw.close();
         } catch (IOException e) {
 //            e.printStackTrace();
@@ -327,7 +336,7 @@ public class Main {
         String resultFile = "";
         String executeDate = "";
         Date day = new Date();
-        SimpleDateFormat df = new SimpleDateFormat("yyyyMMdd");
+        SimpleDateFormat df = new SimpleDateFormat("yyyyMMddHH");
 
         if (args.length == 3) {
             if (args[2].trim().length() == 0) {
@@ -337,7 +346,11 @@ public class Main {
             } else {
                 sourceFile = args[0];
                 resultFile = args[1];
-                executeDate = args[2];
+                if (executeDate.length()==8) {
+                    executeDate = args[2] + df.format(day).substring(8);
+                } else {
+                    executeDate = args[2];
+                }
             }
         } else if (args.length == 2) {
             sourceFile = args[0];
@@ -347,6 +360,7 @@ public class Main {
             System.out.println("参数不完整");
             System.exit(2);
         }
+//        System.out.println(executeDate.substring(0,8));
         checkArguments(sourceFile, executeDate);
         replaceDate(sourceFile, resultFile, executeDate);
     }

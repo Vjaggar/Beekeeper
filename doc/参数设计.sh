@@ -1,19 +1,25 @@
 
 #-- 完成参数设计
 
-# 1.距离今天多少天之前
+# 1.距离当前时间多少小时之前
+${hour,-1,yyyyMMddHH}
+${hour,-1,yyyyMMdd}
+${hour,-1,yyyyMM}
+${hour,-1,yyyy}
+
+# 2.距离今天多少天之前
 # 昨天
 ${day,-1,yyyyMMdd}
 ${day,-1,yyyyMM}
 ${day,-1,yyyy}
 
-# 2.距离今天多少月之前
+# 3.距离今天多少月之前
 # 上个月的今天
 ${month,-1,yyyyMMdd}
 ${month,-1,yyyyMM}
 ${month,-1,yyyy}
 
-# 3.距离今天多少年之前
+# 4.距离今天多少年之前
 # 一年前的今天
 ${year,-1,yyyyMMdd}
 ${year,-1,yyyyMM}
