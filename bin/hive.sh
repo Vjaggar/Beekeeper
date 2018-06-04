@@ -1,8 +1,8 @@
 #!/bin/bash
 # -------------------------------------------------
 # demiurge:jianggang
-# time: F_ 20180321 \ L_ 20180602
-# version:0.1.15
+# time: F_ 20180321 \ L_ 20180604
+# version:0.1.16
 # encoded:UTF-8
 # functions:
 # P.S:
@@ -50,10 +50,20 @@ checkValue() {
     if [ ${#date} -ne 0 ];then
         expr ${date} "+" 1 &> /dev/null
         local mess1=$?
-        date -d "${date} + 1 days" +"%Y%m%d" &> /dev/null
-        if [ $? -ne 0 ] || [ ${mess1} -ne 0 ] || [ ${#date} -ne 8 ];then
-            echo "< ERROR! > Please input right date(YYYYMMDD)!"
-            exit -1
+        if [ ${#date} -eq 8 ];then
+            date -d "${date} + 1 days" +"%Y%m%d" &> /dev/null
+            if [ $? -ne 0 ] || [ ${mess1} -ne 0 ];then
+                echo "< ERROR! > Please input right date(YYYYMMDD or YYYYMMDDHH)!"
+                exit -1
+            fi
+        elif [ ${#date} -eq 10 ];then
+            date -d "${date:8:2}" +"%H" &> /dev/null
+            if [ $? -ne 0 ] || [ ${mess1} -ne 0 ];then
+                echo "< ERROR! > Please input right date(YYYYMMDD or YYYYMMDDHH)!"
+                exit -1
+            fi
+        else
+            echo "< ERROR! > Please input right date(YYYYMMDD or YYYYMMDDHH)!"
         fi
     fi
 }
@@ -97,9 +107,9 @@ judgeErrorMess() {
     local executeState=$2
     local loopCnt=$3
 
-    # 限定错误信息长度为12个字符串,减少循环匹配时长
-    if [ ${#errLog[*]} -gt 12 ];then
-        errLogIndexCnt=12
+    # 限定错误信息长度为16个字符串,减少循环匹配时长
+    if [ ${#errLog[*]} -gt 16 ];then
+        errLogIndexCnt=16
     else
         errLogIndexCnt=${#errLog[*]}
     fi
@@ -228,7 +238,7 @@ writeLog() {
             # HQL运行时间所在行数
             usetimes=(`grep -e 'N\?o\?[0-9]* row[s]\? selected ([0-9]\+\.[0-9]\+ seconds)' -e 'N\?o\?[0-9]* row[s]\? affected ([0-9]\+\.[0-9]\+ seconds)' -no ${loop_file}|sed s/[[:space:]]//g`)
 
-            echo > ${log_record_sql}${xx}
+             > ${log_record_sql}${xx}
 
             # 块备注所在行数
             blocks=`grep '\-\-<\?C\?U\?T\?>\?\[.*\]€[0-9]*€' -no ${loop_file}|sed s/[[:space:]]//g`
@@ -314,7 +324,7 @@ writeLogToDatabase() {
 #-- 给--[]块备注序号
 descBlock() {
     descBlockFile=${R_hql}.desc
-    echo > ${descBlockFile}
+     > ${descBlockFile}
     local cnt=0
     while IFS= read -r line
     do
@@ -349,11 +359,10 @@ superHive() {
         errorlog=`cat ${job_log}|grep -i error`
         if [ `judgeErrorMess "${errorlog}" "${flag}" "${i}"` -eq 0 ];then
             rm -f ${job_log}
-            rm -f ${R_hql}
             break;
         else
             sleep ${loop_sleep_time}s
-            echo "looping...${i}"
+            echo "Looping... ${i}"
             cutFile
         fi
         i=$((i+1))
@@ -407,7 +416,7 @@ arry_need_loop_cnt=(${need_loop_cnt})
 if [ ! "${need_loop_cnt}" ];then
     needLoopCnt=3
 elif [[ `echo "${#arry_need_loop_cnt[*]}"` -ne 1 || ${need_loop_cnt_flag} -ne 0 ]];then
-    echo "WARN ${need_loop_cnt}"
+    echo "< WARN!> ${beekeeper_cfg} The need_loop_cnt is error: ${need_loop_cnt}"
     needLoopCnt=3
 else
     needLoopCnt=${need_loop_cnt}
@@ -418,10 +427,10 @@ expr ${loop_sleep_time} + 1 &>/dev/null
 loop_sleep_time_flag=$?
 arry_loop_sleep_time=(${loop_sleep_time})
 if [ ! "${loop_sleep_time}" ];then
-    loop_sleep_time=3
+    loop_sleep_time=300
 elif [[ `echo "${#arry_loop_sleep_time[*]}"` -ne 1 || ${loop_sleep_time_flag} -ne 0 ]];then
-    echo "WARN ${loop_sleep_time}"
-    loop_sleep_time=3
+    echo "< WARN!> ${beekeeper_cfg} The loop_sleep_time is error: ${loop_sleep_time}"
+    loop_sleep_time=300
 else
     loop_sleep_time=${loop_sleep_time}
 fi
@@ -465,7 +474,7 @@ if [ ! -d ${job_path}/logs/poppy/ ];then
     mkdir -p ${job_path}/logs/poppy/
 fi
 
-#--删除5天以前的历史日志,5天前的执行hql文件
+#--删除5天以前的日志文件
 find ${job_path}/logs/ -mtime +5 -type f |xargs rm -f &> /dev/null
 
 #--检查是否文件名、执行日期两个参数都传正确了
