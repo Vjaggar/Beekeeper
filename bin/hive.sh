@@ -1,8 +1,8 @@
 #!/bin/bash
 # -------------------------------------------------
 # demiurge:jianggang
-# time: F_ 20180321 \ L_ 20180614
-# version:0.1.17
+# time: F_ 20180321 \ L_ 20180712
+# version:0.1.18
 # encoded:UTF-8
 # functions:
 # P.S:
@@ -318,7 +318,8 @@ writeLog() {
 
 # 执行已生成的日志SQL文件,将日志信息插入数据库中
 writeLogToDatabase() {
-    :
+    # :
+    mysql -h 10.0.0.11 -ubeekeeper -pbeekeeper -Ne "source ${log_record_sql};"
 }
 
 

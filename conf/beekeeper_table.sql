@@ -23,18 +23,18 @@ blockcnt int COMMENT '块编号',
 blockmess VARCHAR(2000) COMMENT '块备注',
 loop_cnt  int COMMENT '重跑次数编号',
 hql    blob  COMMENT '执行的HQL语句',
-start_time  double  COMMENT '开始时间',
-over_time  double  COMMENT '结束时间',
+start_time  double  COMMENT '开始时间(Linux时间戳)',
+over_time  double  COMMENT '结束时间(Linux时间戳)',
 use_time  double  COMMENT '花费时间(s)',
-task_status  int  COMMENT '任务状态',
-error_mess blob COMMENT '错误信息'
-) 
+task_status  int  COMMENT '任务状态(0:成功 -1:失败 1:正在进行)',
+error_mess blob COMMENT 'HQL报错信息'
+)
 default charset = utf8
 ;
 
 
 
-SELECT * FROM beekeeper_log ORDER BY start_time     
+SELECT * FROM beekeeper_log ORDER BY start_time ;
 
 
 
@@ -43,4 +43,3 @@ SELECT * FROM beekeeper_log ORDER BY start_time
 
 
 
- 

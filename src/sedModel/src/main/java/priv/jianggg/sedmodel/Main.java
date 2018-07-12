@@ -28,11 +28,14 @@ public class Main {
         }
 
         // 检查传入的日期格式是否正常
-        SimpleDateFormat format;
+        SimpleDateFormat format = null;
         if (para2.length() == 8) {
             format = new SimpleDateFormat("yyyyMMdd");
-        } else {
+        } else if (para2.length() == 10) {
             format = new SimpleDateFormat("yyyyMMddHH");
+        } else {
+            System.out.println("传入的日期格式有问题: " + para2);
+            System.exit(2);
         }
         try {
             // 设置lenient为false. 否则SimpleDateFormat会比较宽松地验证日期，比如2007/02/29会被接受，并转换成2007/03/01
@@ -346,7 +349,7 @@ public class Main {
             } else {
                 sourceFile = args[0];
                 resultFile = args[1];
-                if (executeDate.length()==8) {
+                if (args[2].trim().length()==8) {
                     executeDate = args[2] + df.format(day).substring(8);
                 } else {
                     executeDate = args[2];
@@ -360,7 +363,6 @@ public class Main {
             System.out.println("参数不完整");
             System.exit(2);
         }
-//        System.out.println(executeDate.substring(0,8));
         checkArguments(sourceFile, executeDate);
         replaceDate(sourceFile, resultFile, executeDate);
     }
