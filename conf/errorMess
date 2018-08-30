@@ -2,3 +2,4 @@ org.apache.spark.sql.catalyst.analysis.NoSuchDatabaseException:
 org.apache.spark.sql.catalyst.analysis.NoSuchTableException:
 org.apache.spark.sql.catalyst.parser.ParseException:
 org.apache.spark.sql.AnalysisException:
+org.apache.hadoop.hive.ql.parse.SemanticException:

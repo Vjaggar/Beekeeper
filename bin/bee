@@ -2,7 +2,7 @@
 # -------------------------------------------------
 # demiurge:jianggang
 # time: F_ 20180321 \ L_ 20180830
-# version:0.1.19
+# version:0.2.0
 # encoded:UTF-8
 # functions:
 # P.S:
@@ -554,16 +554,16 @@ initialization() {
 }
 
 
-# 初始化-检查HQL文件和配置文件中的引擎是否匹配(这个还存在BUG,心情好的时候再修复)
+# 初始化-检查HQL文件和配置文件中的引擎是否匹配
 checkHQLEngine() {
     links=($(grep -E -e '^['$'\t'' ]*--@.*@<?C?U?T?>?\[?.*?\]?' -no ${R_hql}|grep -E -e '@.*@' -no|grep -v '@BEE@'|sed 's/@//g'|awk -F':' '{print $2}'))
 
     if [ ${#links[*]} -ne 0 ];then
-        for((j=0;j<${#USER_DEFINED_ENGINE[*]};j++))
+        for((j=0;j<${#links[*]};j++))
         do
-            USER_DEFINED_LINK=$(echo "${USER_DEFINED_ENGINE[j]}"|awk -F'=' '{print $1}')
-            if [[ ! "${links[@]}" =~ ${USER_DEFINED_LINK} ]];then
-                echo '有不匹配的引擎'
+            USER_DEFINED_LINK=($(echo "${USER_DEFINED_ENGINE[j]}"|awk -F'=' '{print $1}'))
+            if [[ ! "${USER_DEFINED_LINK[@]}" =~ ${links[${j}]} ]];then
+                echo '< ERROR! > No such engine "'${links[${j}]}'" in '${beekeeper_cfg}
                 exit -1;
             fi
         done
@@ -678,8 +678,6 @@ ASC_File="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}ASC"
 # 倒序执行文件
 DESC_File="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}DESC"
 
-# rm -rf /root/Beekeeper/logs/*
-
 #--创建日志存放路径和执行文件路径
 if [ ! -d ${job_path}/logs/poppy/ ];then
     mkdir -p ${job_path}/logs/poppy/
@@ -724,6 +722,8 @@ do
 done
 
 wait
+
+
 
 
 

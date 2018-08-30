@@ -33,13 +33,6 @@ default charset = utf8
 ;
 
 
-
-SELECT * FROM beekeeper_log ORDER BY start_time ;
-
-
-
-
-
-
+SELECT *, FROM_UNIXTIME(A.start_time), FROM_UNIXTIME(A.over_time) FROM beekeeper_log A ORDER BY start_time;
 
 
