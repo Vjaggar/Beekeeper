@@ -1,0 +1,732 @@
+#!/bin/bash
+# -------------------------------------------------
+# demiurge:jianggang
+# time: F_ 20180321 \ L_ 20180830
+# version:0.1.19
+# encoded:UTF-8
+# functions:
+# P.S:
+# -------------------------------------------------
+
+. /etc/profile
+
+
+#--红色高亮输出
+hightEcho() {
+    echo -e "\033[37;31;1m  ${1}  \033[39;49;0m"
+}
+
+
+#-- 分析日志,生成能够写入数据库的SQL语句
+writeLog() {
+    # 开局等待5秒钟
+    sleep 5s
+
+    all_log_size=0
+
+    if [ ${#date} -eq 0 ];then
+        exectime=$(date +'%Y%m%d')
+    else
+        exectime=${date}
+    fi
+
+    while true
+    do
+        while true
+        do
+            # 若日志文件大小发生变化,则更新日志SQL
+            tmp_size=$(du -b ${all_log}|awk '{print $1}')
+            if [ ${tmp_size} -ne ${all_log_size} ];then
+                all_log_size=${tmp_size}
+                break;
+            else
+                # 若结束标志文件存在,则判定为程序结束
+                if [ -f ${over_flag} ];then
+                    break 2;
+                fi
+                # 若在未生成结束标志文件的情况下,程序主进程不存在,则判定为程序被杀死
+                if [ $(ps -ef|grep ${pid}|grep ${hql_file}|wc -l) -eq 0 ];then
+                    echo "The procedure was be killed."
+                    exit -1;
+                fi
+                sleep 2s
+            fi
+        done
+
+        local task_id=${timestamp}
+        local file_name=$(echo ${all_log##*/}|xargs|awk -F'.' '{print $1}')
+        local tmp_file=${job_path}/logs/poppy/${file_name}
+        # 将日志文件做拍照到临时文件
+        cp ${all_log} ${tmp_file}
+
+        # 重跑运行开始标志
+        starts=($(grep '@BeekeeperSTART[0-9]*Dot@' -no ${all_log}))
+        # 重跑运行结束标志
+        overs=($(grep '@BeekeeperOVER[0-9]*Dot@' -no ${all_log}))
+
+        echo -e "USE beekeeper;\nDELETE FROM beekeeper_log WHERE task_id = ${task_id};" > ${log_record_sql}
+
+        for((xx=0;xx<${#starts[*]};xx++))
+        do
+            # 重跑运行开始标志所在行数
+            start_line=$(echo ${starts["${xx}"]}|awk -F':' '{print $1}')
+            # 重跑运行开始标志记录的时间
+            start_time=$(echo ${starts["${xx}"]}|awk -F':' '{print $2}'|sed 's/@BeekeeperSTART//g'|sed 's/Dot@//g')
+
+            if [ ${#overs["${xx}"]} -eq 0 ];then
+                over_line=$(cat ${tmp_file}|wc -l)
+                over_time=''
+            else
+                # 重跑运行结束标志所在行数
+                over_line=$(echo ${overs["${xx}"]}|awk -F':' '{print $1}')
+                # 重跑运行结束标志记录的时间
+                over_time=$(echo ${overs["${xx}"]}|awk -F':' '{print $2}'|sed 's/@BeekeeperOVER//g'|sed 's/Dot@//g')
+            fi
+
+            loop_file=${tmp_file}${xx}
+            sed -n "${start_line},${over_line}p" ${tmp_file} > ${loop_file}
+            # HQL运行时间所在行数
+            usetimes=($(grep -e 'N\?o\?[0-9]* row[s]\? selected ([0-9]\+\.[0-9]\+ seconds)' -e 'N\?o\?[0-9]* row[s]\? affected ([0-9]\+\.[0-9]\+ seconds)' -no ${loop_file}|sed s/[[:space:]]//g))
+
+             > ${log_record_sql}${xx}
+
+            # 块备注所在行数
+            blocks=$(grep -E -e '--@?.*?@?<?C?U?T?>?\[.*\]€[0-9]*€' -no ${loop_file}|sed s/[[:space:]]//g)
+
+            # 以 1 row selected (144.57 seconds) 此类标志为分割线
+            for((o=0;o<${#usetimes[*]};o++))
+            do
+                u=$((o-1))
+                usetime_time=$(echo "${usetimes["${o}"]}"|awk -F':' '{print $2}'|awk -F'(' '{print $2}'|sed s/'seconds)'//g)
+
+                # 判断所属块的标志
+                for block in ${blocks}
+                do
+                    block_line=$(echo "${block}"|awk -F':' '{print $1}')
+                    block_mess=$(echo "${block}"|awk -F':' '{print $2}'|grep '\[.*\]' -o|sed 's/\[//g'|sed 's/\]//g')
+                    block_cnt=$(echo "${block}"|awk -F':' '{print $2}'|grep '€[0-9]*€' -o|sed 's/€//g')
+
+                    if [ $(echo "${usetimes["${o}"]}"|awk -F':' '{print $1}') -gt ${block_line} ];then
+                        blockmess=${block_mess}
+                        blockcnt=${block_cnt}
+                    fi
+                done
+
+                if [ ! ${blockcnt} ];then
+                    blockcnt=0
+                fi
+
+                if [ ${o} -eq 0 ];then
+                    hql=$(sed -n "1,$(echo "${usetimes["${o}"]}"|awk -F':' '{print $1}')p" ${loop_file}|sed s#\'##g)
+                else
+                    hql=$(sed -n "$(echo "${usetimes["${u}"]}"|awk -F':' '{print $1}'),$(echo "${usetimes["${o}"]}"|awk -F':' '{print $1}')p" ${loop_file}|sed s#\'##g)
+                fi
+                echo "insert into beekeeper_log(task_id,exectime,table_name,hql_file,blockcnt,blockmess,loop_cnt,hql,start_time,over_time,use_time,task_status) values(${task_id},${exectime},'${table_name}','${hql_file}',${blockcnt},'${blockmess}',${xx},'${hql}',${start_time},$(echo ${start_time}+${usetime_time}|bc),${usetime_time},0);" >> ${log_record_sql}${xx}
+                start_time=$(echo ${start_time}+${usetime_time}|bc)
+            done
+
+            if [ ${#usetimes[*]} -eq 0 ];then
+                hql=$(cat ${loop_file}|sed s#\'##g)
+            else
+                lscn=$((${#usetimes[*]}-1))
+                hql=$(sed -n "$(echo "${usetimes["${lscn}"]}"|awk -F':' '{print $1}'),$(cat ${loop_file}|wc -l)p" ${loop_file}|sed s#\'##g)
+            fi
+
+            if [ ${#hql} -ne 0 ];then
+                # 判断所属块的标志
+                for block in ${blocks}
+                do
+                    block_line=$(echo "${block}"|awk -F':' '{print $1}')
+                    block_mess=$(echo "${block}"|awk -F':' '{print $2}'|grep '\[.*\]' -o|sed 's/\[//g'|sed 's/\]//g')
+                    block_cnt=$(echo "${block}"|awk -F':' '{print $2}'|grep '€[0-9]*€' -o|sed 's/€//g')
+
+                    if [ $(cat ${loop_file}|wc -l) -gt ${block_line} ];then
+                        blockmess=${block_mess}
+                        blockcnt=${block_cnt}
+                    fi
+                done
+
+                if [ ! ${blockcnt} ];then
+                    blockcnt=0
+                fi
+
+                error_mess=$(cat ${loop_file}|grep -i error|sed s/\;//g|sed s/\'//g|sed 's/\,/ /g')
+                if [ ${#error_mess} -ne 0 ];then
+                    echo "insert into beekeeper_log(task_id,exectime,table_name,hql_file,blockcnt,blockmess,loop_cnt,hql,start_time,over_time,use_time,task_status,error_mess) values(${task_id},${exectime},'${table_name}','${hql_file}',${blockcnt},'${blockmess}',${xx},'${hql}',${start_time},${over_time},$(echo ${over_time}-${start_time}|bc),-1,'${error_mess}');" >> ${log_record_sql}${xx}
+                fi
+
+                if [ ${#over_time} -eq 0 ];then
+                    echo "insert into beekeeper_log(task_id,exectime,table_name,hql_file,blockcnt,blockmess,loop_cnt,hql,start_time,task_status) values(${task_id},${exectime},'${table_name}','${hql_file}',${blockcnt},'${blockmess}',${xx},'${hql}',${start_time},1);" >> ${log_record_sql}${xx}
+                fi
+            fi
+            if [ -f ${log_record_sql}${xx} ];then
+                cat ${log_record_sql}${xx} >> ${log_record_sql}
+                rm -f ${log_record_sql}${xx}
+            fi
+            rm -f ${loop_file}
+        done
+        rm -f ${tmp_file}
+
+        writeLogToDatabase
+
+    done
+}
+
+
+# 执行已生成的日志SQL文件,将日志信息插入数据库中
+writeLogToDatabase() {
+    :
+    mysql -h 10.0.0.11 -ubeekeeper -pbeekeeper -Ne "source ${log_record_sql};" &> /dev/null
+}
+
+
+#--检查是否文件、执行日期两个参数都传正确了
+checkValue() {
+    local hql_file=$1
+    local date=$2
+    local err_value=$3
+    local array_a=($hql_file)
+    local array_b=($date)
+
+    # 判断传入的参数是否为单个值,hql文件是否正常
+    local a_l=$(echo ${hql_file}|awk '{print $1}')
+    if [ ${#array_a[*]} -gt 1 ] || [ ${#array_b[*]} -gt 1 ] || [ ${#hql_file} -ne ${#a_l} ];then
+        echo "< ERROR! > Please input right values!"
+        exit -1
+    fi
+    # 判断是否传入了多余参数
+    if [ ${#err_value} -ne 0 ];then
+        echo "< ERROR! > Can't input greater than two values!"
+        exit -1
+    fi
+    # 判断是否传入了需执行的hql文件
+    if [ ${#hql_file} -eq 0 ];then
+        echo "< ERROR! > Please input hql file!"
+        exit -1
+    fi
+    #--检查是否存在hql文件
+    if [ ! -f ${hql_file} ];then
+        echo "< ERROR! > No such file ( ${hql_file} )!"
+        exit -1
+    fi
+    # 判断传入的时间参数是否正常
+    if [ ${#date} -ne 0 ];then
+        expr ${date} "+" 1 &> /dev/null
+        local mess1=$?
+        if [ ${#date} -eq 8 ];then
+            date -d "${date} + 1 days" +"%Y%m%d" &> /dev/null
+            if [ $? -ne 0 ] || [ ${mess1} -ne 0 ];then
+                echo "< ERROR! > Please input right date(YYYYMMDD or YYYYMMDDHH)!"
+                exit -1
+            fi
+        elif [ ${#date} -eq 10 ];then
+            date -d "${date:8:2}" +"%H" &> /dev/null
+            if [ $? -ne 0 ] || [ ${mess1} -ne 0 ];then
+                echo "< ERROR! > Please input right date(YYYYMMDD or YYYYMMDDHH)!"
+                exit -1
+            fi
+        else
+            echo "< ERROR! > Please input right date(YYYYMMDD or YYYYMMDDHH)!"
+            exit -1
+        fi
+    fi
+}
+
+
+#-- 判断异常报错是否需按预期直接中止程序
+judgeErrorMess() {
+    # 报错信息
+    local errLog=($1)
+    # 执行状态
+    local executeState=$2
+    # 循环次数
+    local loopCnt=$3
+
+    # 限定错误信息长度为16个字符串,减少循环匹配时长
+    if [ ${#errLog[*]} -gt 16 ];then
+        errLogIndexCnt=16
+    else
+        errLogIndexCnt=${#errLog[*]}
+    fi
+
+    local xyr=0
+
+    # 如果程序执行正常,直接返回0
+    if [ ${executeState} -eq 0 ];then
+        :
+    else
+        # 如果程序执行不正常,且重跑次数大于预定次数,则返回-1
+        if [ ${loopCnt} -gt ${needLoopCnt} ] && [ ${executeState} -ne 0 ];then
+            xyr=-1
+        else
+            # 若存在预定报错直接中止的文件,则将此次报错信息进行对比
+            if [ -f ${errorMess} ];then
+                errorMessAll=$(cat ${errorMess}|xargs|sed s/[[:space:]]//g)
+                if [ ${#errorMessAll} -ne 0 ];then
+                    # 若未能从日志文件中匹配到报错信息,则返回1让程序继续重跑
+                    if [ ${errLogIndexCnt} -eq 0 ];then
+                        xyr=1
+                    else
+                        for((ii=0;ii<${errLogIndexCnt};ii++))
+                        do
+                            for((jj=$((ii+1));jj<$((${errLogIndexCnt}+1));jj++))
+                            do
+                                mess=""
+                                for((xo=${ii};xo<${jj};xo++))
+                                do
+                                    mess=${mess}" "${errLog["${xo}"]}
+                                    while read -r errorMessLine
+                                    do
+                                        MS1=$(echo ${errorMessLine}|sed 's/^[ \t]*//g'|sed 's/[ \t]*$//g')
+                                        MS2=$(echo ${mess}|sed 's/^[ \t]*//g'|sed 's/[ \t]*$//g')
+                                        # 当匹配到预定报错直接中止信息时,中止程序
+                                        if [ "${MS1}" = "${MS2}" ];then
+                                            xyr=-1
+                                            break 4;
+                                        else
+                                            xyr=1
+                                        fi
+                                    done < ${errorMess}
+                                done
+                            done
+                        done
+                    fi
+                else
+                    xyr=1
+                fi
+            else
+                xyr=1
+            fi
+        fi
+    fi
+
+    if [ ${xyr} -eq 0 ];then
+        # 让程序正常进行
+        echo "0"
+    elif [ ${xyr} -eq 1 ];then
+        # 让程序重跑
+        echo "1"
+    else
+        # 让程序异常退出
+        echo "-1"
+    fi
+}
+
+
+#-- 给--[]块备注序号
+descBlock() {
+    descBlockFile=${R_hql}.desc
+     > ${descBlockFile}
+    local cnt=0
+    while IFS= read -r line
+    do
+        if [ $(echo "${line}"|grep '\-\-@\?.*\?@\?<\?C\?U\?T\?>\?\[.*\]'|wc -l) -ne 0 ];then
+            cnt=$((cnt+1))
+            line=$(echo "${line}"|sed 's/[ \t]*$//g')€${cnt}€
+        fi
+        echo "${line}" >> ${descBlockFile}
+    done < ${R_hql}
+    rm -f ${R_hql}
+    mv ${descBlockFile} ${R_hql}
+}
+
+
+#-- 判断HQL执行最终状态
+judgeJobStatus() {
+    if [ $(cat ${job_flag}) = "0" ];then
+        touch ${over_flag}
+        exit 0;
+    elif [ $(cat ${job_flag}) = "-1" ];then
+        touch ${over_flag}
+        exit -1
+    else
+       :
+    fi
+}
+
+
+#-- 根据--<CUT>切割HQL文件以支撑重跑
+cutFile() {
+    last_lines=0
+    # 统计此HQL文件之前的hql文件中语句共有多少行
+    while IFS= read -r line
+    do
+        if [ "${hqlFile}" = "${line}" ];then
+            the_lines=0
+            break;
+        else
+            the_lines=$(cat ${line}|wc -l)
+            last_lines=$((${last_lines}+${the_lines}))
+        fi
+    done < ${ASC_File}
+
+    # 通过匹配关键字符"hive"和">",找出出现频率最多的字符串作为匹配日志中HQL语句的标志
+    HEAD=$(cat ${job_log}|grep '>'|awk -F'>' '{print $1}'|grep 'hive'|sort|uniq -c|sort -n -k 1|grep -v '\. \.'|tail -1|awk '{$1="";print}'|sed 's/^[ \t]*//g'|sed 's/[ \t]*$//g')">"
+
+    # BEELINE的匹配HQL语句标志中,存在类似与". . . . . .>"的这种情况
+    line_id_dot=$(cat ${job_log}|grep '^\.'|grep '\. \. \. \. \. \. \. \. \. \.'|grep '>'|awk -F'>' '{print $1}'|awk 'NR==1{print}')
+
+    if [ ${#line_id_dot} -eq 0 ];then
+        line_id_dot_ms="${HEAD}"">"
+    else
+        line_id_dot_ms="${line_id_dot}"">"
+    fi
+    # 统计日志文件中HQL语句有多少行
+    log_hql_line=$(cat ${job_log}|grep -e "${HEAD}" -e "${line_id_dot_ms}" -c)
+    # 找到报错的语句";"在第几行
+    hql_line=$((${log_hql_line}+${last_lines}))
+
+    # 通过hql文件找到这一行上面最近的一个--CUT
+    CUT_line_id=$(sed -n "1,${hql_line}p" ${R_hql}|grep -E -e '^['$'\t'' ]*--@?.*?@?<CUT>\[?.*?\]?' -no|awk -F':' '{print $1}'|tail -1)
+    if [ ${#CUT_line_id} -eq 0 ];then
+        CUT_line_id=1
+    fi
+
+    # 匹配出对应的CUT那一行
+    the_CUT=$(sed -n "1,${hql_line}p" ${R_hql}|grep -E -e '^['$'\t'' ]*--@?.*?@?<CUT>\[?.*?\]?'|tail -1)
+    # 找到这个CUT的执行引擎的那一行
+    engine_line_id=$(sed -n "1,${hql_line}p" ${R_hql}|grep -E -e '^['$'\t'' ]*--@.*@<?C?U?T?>?\[?.*?\]?' -no|awk -F':' '{print $1}'|tail -1)
+
+    # 若是没找到引擎标识,则从第一行开始截取
+    if [ ! ${engine_line_id} ];then
+        engine_line_id=1
+    fi
+
+    # 找到这个CUT执行引擎标志所在的那一行行号
+    the_engine=$(sed -n "1,${hql_line}p" ${R_hql}|grep -E -e '^['$'\t'' ]*--@.*@?<?C?U?T?>?\[?.*?\]?'|tail -1)
+    # 将这个CUT执行引擎标志所在的那一行下面,最近的那个CUT上面所有的HQL语句写到临时文件
+    sed -n "${engine_line_id},${CUT_line_id}p" ${R_hql} > ${TMP_file}
+    # 从临时文件中提取出最近的那个CUT上面所有的SET
+    SETs=$(grep -E -e '^['$'\t'' ]*[Ss][Ee][Tt]['$'\t'' ]+[^'$'\t'' ]+['$'\t'' ]*=.*;' -o ${TMP_file})
+
+    if [ ${#SETs} -ne 0 ];then
+        # 如果执行引擎和CUT标志在同一行
+        if [ ${CUT_line_id} -eq ${engine_line_id} ];then
+            # 先写CUT那一行到临时文件作为首行
+            echo "${the_CUT}" > ${TMP_file}
+        else
+            # 先写执行引擎那一行到临时文件作为首行
+            echo "${the_engine}" > ${TMP_file}
+            # 再写CUT那一行到临时文件作为首行
+            echo "${the_CUT}" >> ${TMP_file}
+        fi
+
+        # 再写最近的那个CUT上面所有的SET
+        echo -e "${SETs}" >> ${TMP_file}
+        # 最后写--<CUT>以下的所有HQL语句
+        sed -n "$((${CUT_line_id}+1)),$(cat ${R_hql}|wc -l)p" ${R_hql} >> ${TMP_file}
+        cat ${TMP_file} > ${R_hql}
+    else
+        # 如果执行引擎和CUT标志在同一行
+        if [ ${CUT_line_id} -eq ${engine_line_id} ];then
+            # 写--<CUT>以下的所有HQL语句
+            sed -n "${CUT_line_id},$(cat ${R_hql}|wc -l)p" ${R_hql} > ${TMP_file}
+        else
+            # 先写执行引擎那一行到临时文件作为首行
+            echo "${the_engine}" > ${TMP_file}
+            # 写--<CUT>以下的所有HQL语句
+            sed -n "${CUT_line_id},$(cat ${R_hql}|wc -l)p" ${R_hql} >> ${TMP_file}
+        fi
+
+        cat ${TMP_file} > ${R_hql}
+    fi
+}
+
+#-- 执行HQL内核
+executeHql() {
+    #--程序内核
+    ${GO} ${hqlFile}
+    echo $? > ${job_flag}
+}
+
+#-- 启动吧!超级HIVE,火力全开!
+superHive() {
+    local begin_time=$(date +"%Y-%m-%d %H:%M:%S")
+    echo -e "\n[- ^binggo^ ${begin_time} -]\n" | tee -a ${all_log}
+    echo -e '@BeekeeperSTART'$(date +"%s")'Dot@' | tee -a ${all_log}
+
+    while IFS= read -r line
+    do
+        hqlFile=${line}
+        # 匹配出这个HQL文件对应的执行引擎是哪个
+        engine=$(cat ${hqlFile}|grep -E -e '^['$'\t'' ]*--@.*@<?C?U?T?>?\[?.*?\]?'|grep -E -e '@.*@' -o|sed 's/@//g'|tail -1)
+
+        if [ ! ${engine} ] || [ "${engine}" = "BEE" ];then
+            GO=${BEE}
+        else
+            for((o=0;o<${#USER_DEFINED_ENGINE[*]};o++))
+            do
+                cfg_engine=$(echo ${USER_DEFINED_ENGINE["${o}"]}|awk -F'=' '{print $1}')
+                if [ "${cfg_engine}" = "${engine}" ];then
+                    GO=$(echo ${USER_DEFINED_ENGINE["${o}"]}|awk -F'=' '{$1="";print}')
+                    break;
+                fi
+            done
+        fi
+
+        job_log=$(echo "${hqlFile}"|sed 's#\.q#\.log#g')
+        executeHql 2>&1 | tee ${job_log} | tee -a ${all_log}
+        # 得到任务执行状态
+        flag=$(cat ${job_flag})
+        # 通过error关键字找出日志文件中的报错信息
+        errorlog=$(cat ${job_log}|grep -i error)
+        if [ $(judgeErrorMess "${errorlog}" "${flag}" "${the_loop_cnt}") = "0" ];then
+            :
+        elif [ $(judgeErrorMess "${errorlog}" "${flag}" "${the_loop_cnt}") = "1" ];then
+            sleep ${LOOP_SLEEP_TIME}s
+            echo "Looping... ${the_loop_cnt}"
+            cutFile
+            break;
+        elif [ $(judgeErrorMess "${errorlog}" "${flag}" "${the_loop_cnt}") = "-1" ];then
+            echo "-1" > ${job_flag}
+            break;
+        else
+            echo "-1" > ${job_flag}
+            break;
+        fi
+    done < ${ASC_File}
+
+    echo -e '@BeekeeperOVER'$(date +"%s")'Dot@' | tee -a ${all_log}
+    local end_time=$(date +"%Y-%m-%d %H:%M:%S")
+    echo -e "\n------------------------------------------------------------------\n|  .begin : ${begin_time}  --  .end : ${end_time}  |\n------------------------------------------------------------------\n" | tee -a ${all_log}
+}
+
+
+initialization() {
+    # 检查beekeeper配置文件是否存在
+    beekeeper_cfg="${job_path}/conf/beekeeper.cfg"
+    if [ ! -f "${beekeeper_cfg}" ];then
+        echo "< ERROR! > No such file ${beekeeper_cfg}"
+        exit -1;
+    fi
+
+    . ${beekeeper_cfg}
+
+    beekeeper_cfg_tmp_flag=0
+    # 默认的执行引擎
+    if [ ! "${BEE}" ];then
+        echo "< ERROR! > No such variable 'BEE' in ${beekeeper_cfg}"
+        beekeeper_cfg_tmp_flag=1
+    fi
+
+    # Java的路径
+    if [ ! "${JAVA_HOME}" ];then
+        echo "< ERROR! > No such variable 'JAVA_HOME' in ${beekeeper_cfg}"
+        beekeeper_cfg_tmp_flag=1
+    fi
+
+    if [ ${beekeeper_cfg_tmp_flag} -ne 0 ];then
+        exit -1
+    fi
+
+    # HQL执行异常时重跑次数
+    expr ${NEED_LOOP_CNT} + 1 &>/dev/null
+    need_loop_cnt_flag=$?
+    arry_need_loop_cnt=(${NEED_LOOP_CNT})
+    if [ ! "${NEED_LOOP_CNT}" ];then
+        needLoopCnt=3
+    elif [[ ${#arry_need_loop_cnt[*]} -ne 1 || ${need_loop_cnt_flag} -ne 0 ]];then
+        echo "< WARN!> ${beekeeper_cfg} The NEED_LOOP_CNT is error: ${NEED_LOOP_CNT}"
+        needLoopCnt=3
+    else
+        needLoopCnt=${NEED_LOOP_CNT}
+    fi
+
+    # HQL执行异常时重跑间隔时间(单位:s)
+    expr ${LOOP_SLEEP_TIME} + 1 &>/dev/null
+    loop_sleep_time_flag=$?
+    arry_loop_sleep_time=(${LOOP_SLEEP_TIME})
+    if [ ! "${LOOP_SLEEP_TIME}" ];then
+        LOOP_SLEEP_TIME=300
+    elif [[ ${#arry_loop_sleep_time[*]} -ne 1 || ${loop_sleep_time_flag} -ne 0 ]];then
+        echo "< WARN!> ${beekeeper_cfg} The LOOP_SLEEP_TIME is error: ${LOOP_SLEEP_TIME}"
+        LOOP_SLEEP_TIME=300
+    else
+        LOOP_SLEEP_TIME=${LOOP_SLEEP_TIME}
+    fi
+
+    #--检查替换时间参数的jar包是否存在
+    sedmodel_jar="${job_path}/lib/sedModel.jar"
+    if [ ! -f "${sedmodel_jar}" ];then
+        echo "< ERROR! > No such file ${sedmodel_jar}"
+        exit -1;
+    fi
+}
+
+
+# 初始化-检查HQL文件和配置文件中的引擎是否匹配(这个还存在BUG,心情好的时候再修复)
+checkHQLEngine() {
+    links=($(grep -E -e '^['$'\t'' ]*--@.*@<?C?U?T?>?\[?.*?\]?' -no ${R_hql}|grep -E -e '@.*@' -no|grep -v '@BEE@'|sed 's/@//g'|awk -F':' '{print $2}'))
+
+    if [ ${#links[*]} -ne 0 ];then
+        for((j=0;j<${#USER_DEFINED_ENGINE[*]};j++))
+        do
+            USER_DEFINED_LINK=$(echo "${USER_DEFINED_ENGINE[j]}"|awk -F'=' '{print $1}')
+            if [[ ! "${links[@]}" =~ ${USER_DEFINED_LINK} ]];then
+                echo '有不匹配的引擎'
+                exit -1;
+            fi
+        done
+    fi
+}
+
+# 通过切割将不同引擎的文件切分开
+cutRFile() {
+    cp ${R_hql} ${R_job_hql}
+     > ${ASC_File}
+     > ${DESC_File}
+     > ${R_hql}
+    # 匹配格式 --@执行引擎名称@<CUT>[]
+    links_line=(1 $(grep -E -e '^['$'\t'' ]*--@.*@<?C?U?T?>?\[?.*?\]?' -no ${R_job_hql}|awk -F':' '{print $1}') $(wc -l ${R_job_hql}|awk '{print $1}'))
+
+    for((i=0;i<$(expr ${#links_line[*]} - 1);i++))
+    do
+        j=$((i+1))
+
+        if [ ${links_line["${i}"]} -ne ${links_line["${j}"]} ];then
+            begin_line=${links_line["${i}"]}
+
+            if [ ${j} -eq $((${#links_line[*]}-1)) ];then
+                end_line=${links_line["${j}"]}
+            else
+                end_line=$(expr ${links_line["${j}"]} - 1)
+            fi
+
+            # 如果是第一次正常执行,${the_loop_cnt}=0,则按执行引擎切割时,需将之前的所有SET写到该HQL文件下,非第一次执行的直接做切割就可以了
+            if [ ${the_loop_cnt} -eq 1 ];then
+
+                if [ ${begin_line} -ne 1 ];then
+                    sed -n "1,${begin_line}p" ${R_job_hql} > /tmp/sets.hql
+                    SETs=$(grep -E -e '^['$'\t'' ]*[Ss][Ee][Tt]['$'\t'' ]+[^'$'\t'' ]+['$'\t'' ]*=.*;' -o /tmp/sets.hql)
+
+                    # 先写执行引擎的那一行
+                    sed -n "${begin_line}p" ${R_job_hql} > ${job_path}/logs/poppy/${table_name}_${date}_${timestamp}_${begin_line}_${end_line}.q
+                    sed -n "${begin_line}p" ${R_job_hql} >> ${R_hql}
+
+                    # 再写入该执行引擎之前的所有SET
+                    echo -e "${SETs}" >> ${job_path}/logs/poppy/${table_name}_${date}_${timestamp}_${begin_line}_${end_line}.q
+                    echo -e "${SETs}" >> ${R_hql}
+
+                    # 最后写入该执行引擎的所有HQL语句
+                    sed -n "$((${begin_line}+1)),${end_line}p" ${R_job_hql} >> ${job_path}/logs/poppy/${table_name}_${date}_${timestamp}_${begin_line}_${end_line}.q
+                    sed -n "$((${begin_line}+1)),${end_line}p" ${R_job_hql} >> ${R_hql}
+                    echo "${job_path}/logs/poppy/${table_name}_${date}_${timestamp}_${begin_line}_${end_line}.q" >> ${ASC_File}
+                else
+                    sed -n "${begin_line},${end_line}p" ${R_job_hql} >> ${job_path}/logs/poppy/${table_name}_${date}_${timestamp}_${begin_line}_${end_line}.q
+                    sed -n "${begin_line},${end_line}p" ${R_job_hql} >> ${R_hql}
+                    echo "${job_path}/logs/poppy/${table_name}_${date}_${timestamp}_${begin_line}_${end_line}.q" >> ${ASC_File}
+                fi
+            else
+                sed -n "1,${begin_line}p" ${R_job_hql} > /tmp/sets.hql
+
+                # 按执行引擎切分
+                sed -n "${begin_line},${end_line}p" ${R_job_hql} >> ${job_path}/logs/poppy/${table_name}_${date}_${timestamp}_${begin_line}_${end_line}.q
+                sed -n "${begin_line},${end_line}p" ${R_job_hql} >> ${R_hql}
+                echo "${job_path}/logs/poppy/${table_name}_${date}_${timestamp}_${begin_line}_${end_line}.q" >> ${ASC_File}
+            fi
+        fi
+    done
+
+    tac ${ASC_File} > ${DESC_File}
+}
+
+pid=$$
+timestamp=$(date +"%s%N")
+
+#--文件名
+hql_file=$1
+#--表名
+table_name=$(echo ${hql_file##*/}|xargs|awk -F'.' '{print $1}')
+#--执行日期
+date=$2
+#--多余参数判断
+err_value=$3
+
+#--检查是否文件名、执行日期两个参数都传正确了
+checkValue "${hql_file}" "${date}" "${err_value}"
+
+#--bee脚本所在的绝对路径
+shell_path=$(cd "$(dirname "$0")";pwd)
+#--此工具的绝对路径
+job_path=$(cd ${shell_path}/..;pwd)
+
+#--初始化2-检查jar包和cfg文件内容
+initialization
+
+# 需执行的hql文件
+R_hql="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}T.q"
+# 需执行的hql临时文件
+R_job_hql="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}D.q"
+# 替换参数后的hql文件
+SED_R_hql="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.q"
+# 临时文件
+TMP_file="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}"
+# 任务临时日志
+job_log="${job_path}/logs/${table_name}_${date}_${timestamp}TMP.log"
+# 完整日志
+all_log="${job_path}/logs/${table_name}_${date}_${timestamp}.log"
+# 任务执行结果flag文件
+job_flag="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.flag"
+# 任务执行结束标志文件
+over_flag="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.over"
+# 日志记录sql文件
+log_record_sql="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}.sql"
+# 报错直接重跑的关键字符串
+errorMess="${job_path}/conf/errorMess"
+# 正序执行文件
+ASC_File="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}ASC"
+# 倒序执行文件
+DESC_File="${job_path}/logs/poppy/${table_name}_${date}_${timestamp}DESC"
+
+# rm -rf /root/Beekeeper/logs/*
+
+#--创建日志存放路径和执行文件路径
+if [ ! -d ${job_path}/logs/poppy/ ];then
+    mkdir -p ${job_path}/logs/poppy/
+fi
+
+#--删除5天以前的日志文件
+find ${job_path}/logs/ -mtime +5 -type f |xargs rm -f &> /dev/null
+
+#--替换hql参数并校验
+${JAVA_HOME}/bin/java -jar "${sedmodel_jar}" "${hql_file}" "${R_hql}" "${date}"
+if [ $? -ne 0 ];then
+    exit -1;
+fi
+
+# 剔除空白行
+sed '/^$/d' ${R_hql} -i
+# 剔除行尾空格
+sed 's/[ \t]*$//g' ${R_hql} -i
+
+cp ${R_hql} ${SED_R_hql}
+
+#--检查引擎是否匹配
+checkHQLEngine
+
+descBlock
+
+checkHQLEngine
+
+writeLog &
+
+the_loop_cnt=1
+
+while true
+do
+    cutRFile
+
+    superHive
+
+    judgeJobStatus
+
+    the_loop_cnt=$((the_loop_cnt+1))
+done
+
+wait
+
+
+
+
+
+
